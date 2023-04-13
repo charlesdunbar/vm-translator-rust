@@ -1,8 +1,7 @@
 #![allow(clippy::pedantic)]
 
-use std::str::Lines;
 use log::info;
-
+use std::str::Lines;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
@@ -122,14 +121,14 @@ impl<'a> Parser<'a> {
     /// Returns the second argument of the current command.
     ///
     /// Exits early if command is not C_PUSH, C_POP, C_FUNCTION, or C_CALL
-    pub fn arg2(self) -> Option<usize> {
+    pub fn arg2(self) -> Option<i16> {
         match self.command_type() {
             CommandType::PUSH | CommandType::POP | CommandType::FUNCTION | CommandType::CALL => {
                 return Some(
                     self.current_command
                         .split(' ')
                         .nth(2)?
-                        .parse::<usize>()
+                        .parse::<i16>()
                         .unwrap(),
                 )
             }
