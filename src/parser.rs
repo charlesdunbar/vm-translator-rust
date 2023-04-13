@@ -1,6 +1,8 @@
 #![allow(clippy::pedantic)]
 
 use std::str::Lines;
+use log::info;
+
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
@@ -62,7 +64,7 @@ impl<'a> Parser<'a> {
                                     }
                                 }
                                 _ => {
-                                    println!("{}", line);
+                                    info!("{}", line);
                                     self.current_command = String::from(line)
                                 }
                             }

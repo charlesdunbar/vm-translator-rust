@@ -2,6 +2,27 @@
 
 use crate::parser::Parser;
 
+use log::debug;
+
+#[derive(Debug, Clone)]
+enum StackTypes {
+    Eq(bool),
+    Number(usize),
+}
+
+impl From<usize> for StackTypes {
+    fn from(value: usize) -> Self {
+        StackTypes::Number(value)
+    }
+}
+
+impl From<bool> for StackTypes {
+    fn from(value: bool) -> Self {
+        StackTypes::Eq(value)
+    }
+}
+
+
 struct Memory {
     argument: Vec<usize>,
     local: Vec<usize>,
@@ -54,7 +75,7 @@ impl Memory {
 
 pub struct CodeWriter<'a> {
     pub parser: Parser<'a>,
-    stack: Vec<usize>,
+    stack: Vec<StackTypes>,
     memory: Memory,
 }
 
@@ -70,14 +91,24 @@ impl<'a> CodeWriter<'a> {
     pub fn write_arithmetic(&mut self) {
         match self.parser.arg1().unwrap() {
             "add" => {
-                let first = self.stack.pop().unwrap();
-                let second = self.stack.pop().unwrap();
-                self.stack.push(first + second);
-                println!("Stack is now {:?}", self.stack)
+                if let StackTypes::Number(val) = self.stack.pop().unwrap() {
+                    let first = val;
+                    if let StackTypes::Number(val) = self.stack.pop().unwrap() {
+                        let second = val;
+                        self.stack.push(StackTypes::Number(first + second));
+                    }
+
+                }
+                debug!("Stack is now {:?}", self.stack)
             }
             "sub" => {}
             "neg" => {}
-            "eq" => {}
+            "eq" => {
+                // let first = self.stack.pop().unwrap();
+                // let second = self.stack.pop().unwrap();
+                // let eq = first.into() == second.into();
+                // self.stack.push(StackTypes::Eq(eq));
+            }
             "gt" => {}
             "lt" => {}
             "and" => {}
@@ -99,18 +130,20 @@ impl<'a> CodeWriter<'a> {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
                     if segment == "constant" {
-                        self.stack.push(index)
+                        self.stack.push(index.into())
                     } else {
                         let memory = self.memory.string_to_vec(segment);
-                        self.stack.push(memory[index]);
+                        self.stack.push(StackTypes::Number(memory[index]));
                     }
-                    println!("Stack is now {:?}", self.stack.clone())
+                    debug!("Stack is now {:?}", self.stack.clone())
                 }
                 "pop" => {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
                     let memory = self.memory.string_to_vec_mut(segment, index);
-                    *memory.unwrap() = self.stack.pop().unwrap();
+                    if let StackTypes::Number(i) = self.stack.pop().unwrap() {
+                        *memory.unwrap() = i
+                    }
                 }
                 _ => {
                     panic!("Error in matching what command to run in push_pop!")

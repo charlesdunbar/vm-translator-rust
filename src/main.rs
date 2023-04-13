@@ -11,6 +11,7 @@ use code_writer::CodeWriter;
 use parser::Parser;
 
 fn main() {
+    env_logger::init();
     let args: Vec<String> = env::args().collect();
     let mut file_contents = String::new();
     let mut file = File::open(&args[1]).expect("File not found");
