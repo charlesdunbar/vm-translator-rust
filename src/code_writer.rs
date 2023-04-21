@@ -4,21 +4,17 @@ use crate::parser::Parser;
 
 use log::debug;
 
+const TRUE: i16 = -1;
+const FALSE: i16 = 0;
+
 #[derive(Debug, Clone)]
 enum StackTypes {
-    Eq(bool),
     Number(i16),
 }
 
 impl From<i16> for StackTypes {
     fn from(value: i16) -> Self {
         StackTypes::Number(value)
-    }
-}
-
-impl From<bool> for StackTypes {
-    fn from(value: bool) -> Self {
-        StackTypes::Eq(value)
     }
 }
 
@@ -90,71 +86,67 @@ impl<'a> CodeWriter<'a> {
     pub fn write_arithmetic(&mut self) {
         match self.parser.arg1().unwrap() {
             "add" => {
-                if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Number(first + second));
-                    }
-                }
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                self.stack.push(StackTypes::Number(first + second));
                 debug!("Stack is now {:?}", self.stack)
             }
             "sub" => {
-                if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Number(first - second));
-                    }
-                }
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                self.stack.push(StackTypes::Number(first - second));
                 debug!("Stack is now {:?}", self.stack)
             }
             "neg" => {
-                if let StackTypes::Number(num) = self.stack.pop().unwrap() {
-                    self.stack.push(StackTypes::Number(-num))
-                }
+                let StackTypes::Number(num) = self.stack.pop().unwrap();
+                self.stack.push(StackTypes::Number(-num));
                 debug!("Stack is now {:?}", self.stack)
             }
             "eq" => {
-                if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Eq(first == second))
-                    }
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                if first == second {
+                    self.stack.push(StackTypes::Number(TRUE));
+                } else {
+                    self.stack.push(StackTypes::Number(FALSE));
                 }
                 debug!("Stack is now {:?}", self.stack)
             }
             "gt" => {
-                if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Eq(first > second))
-                    }
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                if first > second {
+                    self.stack.push(StackTypes::Number(TRUE))
+                } else {
+                    self.stack.push(StackTypes::Number(FALSE))
                 }
                 debug!("Stack is now {:?}", self.stack)
             }
             "lt" => {
-                if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Eq(first < second))
-                    }
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                if first < second {
+                    self.stack.push(StackTypes::Number(TRUE))
+                } else {
+                    self.stack.push(StackTypes::Number(FALSE))
                 }
                 debug!("Stack is now {:?}", self.stack)
             }
             "and" => {
-                if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Number(first & second))
-                    }
-                }
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                self.stack.push(StackTypes::Number(first & second));
                 debug!("Stack is now {:?}", self.stack)
             }
             "or" => {
-                if let StackTypes::Number(second) = self.stack.pop().unwrap() {
-                    if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                        self.stack.push(StackTypes::Number(first | second))
-                    }
-                }
+                let StackTypes::Number(second) = self.stack.pop().unwrap();
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                self.stack.push(StackTypes::Number(first | second));
                 debug!("Stack is now {:?}", self.stack)
             }
             "not" => {
-                if let StackTypes::Number(first) = self.stack.pop().unwrap() {
-                    self.stack.push(StackTypes::Number(!first))
-                }
+                let StackTypes::Number(first) = self.stack.pop().unwrap();
+                self.stack.push(StackTypes::Number(!first));
                 debug!("Stack is now {:?}", self.stack)
             }
             _ => {
@@ -184,9 +176,8 @@ impl<'a> CodeWriter<'a> {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
                     let memory = self.memory.string_to_vec_mut(segment, index as usize);
-                    if let StackTypes::Number(i) = self.stack.pop().unwrap() {
-                        *memory.unwrap() = i
-                    }
+                    let StackTypes::Number(i) = self.stack.pop().unwrap();
+                    *memory.unwrap() = i
                 }
                 _ => {
                     panic!("Error in matching what command to run in push_pop!")
