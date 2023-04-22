@@ -5,7 +5,7 @@ mod parser;
 
 use std::env;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 
 use code_writer::CodeWriter;
 use parser::Parser;
@@ -20,6 +20,7 @@ fn main() {
     let p = Parser::new(&file_contents);
     let mut c = CodeWriter::new(p);
     //p.clone().print_lines();
+    let mut out_file = File::create(format!("{}.asm", &args[1].split('.').nth(0).unwrap())).expect("Unable to create new file");
     while c.parser.has_more_lines() {
         c.parser.advance();
         // println!(
@@ -29,10 +30,10 @@ fn main() {
         //     c.parser.clone().arg2()
         // );
         match c.parser.command_type() {
-            parser::CommandType::ARITHMETIC => c.write_arithmetic(),
-            parser::CommandType::PUSH | parser::CommandType::POP => c.write_push_pop(),
-            _ => {}
-        }
+            parser::CommandType::ARITHMETIC => out_file.write(c.write_arithmetic().as_bytes()).expect("Error writing to file"),
+            parser::CommandType::PUSH | parser::CommandType::POP => out_file.write(c.write_push_pop().as_bytes()).expect("Error writing to file"),
+            _ => out_file.write(String::from("Need to Implement").as_bytes()).expect("Error writing to file")
+        };
     }
     // let mut a = Assembler::new(&file_contents);
     // let to_write = a.generate_binary();

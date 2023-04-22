@@ -3,6 +3,7 @@
 use crate::parser::Parser;
 
 use log::debug;
+use indoc::formatdoc;
 
 const TRUE: i16 = -1;
 const FALSE: i16 = 0;
@@ -31,13 +32,13 @@ struct Memory {
 impl Memory {
     fn new() -> Self {
         Memory {
-            argument: Vec::new(),
-            local: Vec::new(),
-            static_vec: Vec::new(),
-            this: Vec::new(),
-            that: Vec::new(),
-            pointer: Vec::new(),
-            temp: Vec::new(),
+            argument: vec![0; 0x6000],
+            local: vec![0; 0x6000],
+            static_vec: vec![0; 0x6000],
+            this: vec![0; 0x6000],
+            that: vec![0; 0x6000],
+            pointer: vec![0; 0x6000],
+            temp: vec![0; 0x6000],
         }
     }
 
@@ -83,7 +84,7 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
-    pub fn write_arithmetic(&mut self) {
+    pub fn write_arithmetic(&mut self) -> String{
         match self.parser.arg1().unwrap() {
             "add" => {
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
@@ -156,9 +157,10 @@ impl<'a> CodeWriter<'a> {
                 )
             }
         }
+        return format!("Math!")
     }
 
-    pub fn write_push_pop(&mut self) {
+    pub fn write_push_pop(&mut self) -> String {
         match self.parser.current_command.split(' ').next() {
             Some(command) => match command {
                 "push" => {
@@ -170,14 +172,26 @@ impl<'a> CodeWriter<'a> {
                         let memory = self.memory.string_to_vec(segment);
                         self.stack.push(StackTypes::Number(memory[index as usize]));
                     }
-                    debug!("Stack is now {:?}", self.stack.clone())
+                    debug!("Stack is now {:?}", self.stack.clone());
+                    return formatdoc!("
+                    @{}
+                    D=M
+                    @{}
+                    A=D+M
+                    D=M
+                    @SP
+                    A=M
+                    M=D
+                    @SP
+                    M=M+1", segment, index);
                 }
                 "pop" => {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
                     let memory = self.memory.string_to_vec_mut(segment, index as usize);
                     let StackTypes::Number(i) = self.stack.pop().unwrap();
-                    *memory.unwrap() = i
+                    *memory.unwrap() = i;
+                    return format!("pop")
                 }
                 _ => {
                     panic!("Error in matching what command to run in push_pop!")
