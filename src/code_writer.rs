@@ -157,7 +157,7 @@ impl<'a> CodeWriter<'a> {
                 )
             }
         }
-        return format!("Math!");
+        return format!("Math!\n");
     }
 
     pub fn write_push_pop(&mut self) -> String {
@@ -166,29 +166,35 @@ impl<'a> CodeWriter<'a> {
                 "push" => {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
+                    let mut write_string = formatdoc!("// push {segment} {index}\n");
+                    let common_string = formatdoc!(
+                        "@{index}
+                        A=D+M
+                        D=M
+                        @SP
+                        A=M
+                        M=D
+                        @SP
+                        M=M+1
+                        \n"
+                    );
                     if segment == "constant" {
                         self.stack.push(index.into());
                         debug!("Stack is now {:?}", self.stack.clone());
-                        return String::from("Implement constant!");
+                        write_string.push_str(&common_string);
+                        return write_string
                     } else {
                         let memory = self.memory.string_to_vec(segment);
                         self.stack.push(StackTypes::Number(memory[index as usize]));
 
                         debug!("Stack is now {:?}", self.stack.clone());
-                        return formatdoc!(
-                            "
-                            // push {segment} {index}
+                        let memory_string = formatdoc!("
                             @{segment}
                             D=M
-                            @{index}
-                            A=D+M
-                            D=M
-                            @SP
-                            A=M
-                            M=D
-                            @SP
-                            M=M+1"
-                        );
+                        ");
+                        write_string.push_str(&memory_string);
+                        write_string.push_str(&common_string);
+                        return write_string
                     }
                 }
                 "pop" => {
