@@ -166,35 +166,36 @@ impl<'a> CodeWriter<'a> {
                 "push" => {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
-                    let mut write_string = formatdoc!("// push {segment} {index}\n");
+                    let mut write_string = format!("// push {segment} {index}\n");
                     let common_string = formatdoc!(
                         "@{index}
                         A=D+M
                         D=M
                         @SP
                         A=M
-                        M=D
-                        @SP
-                        M=M+1
-                        \n"
+                        M=D\n"
                     );
                     if segment == "constant" {
                         self.stack.push(index.into());
                         debug!("Stack is now {:?}", self.stack.clone());
-                        write_string.push_str(&common_string);
+                        //write_string.push_str(&common_string);
+                        write_string = formatdoc! {"{}{}", write_string, common_string};
+                        write_string = increment_stack_pointer(&write_string);
                         return write_string
                     } else {
                         let memory = self.memory.string_to_vec(segment);
                         self.stack.push(StackTypes::Number(memory[index as usize]));
 
                         debug!("Stack is now {:?}", self.stack.clone());
+                        debug!("Segment is now {:?}",memory);
                         let memory_string = formatdoc!("
                             @{segment}
                             D=M
                         ");
                         write_string.push_str(&memory_string);
                         write_string.push_str(&common_string);
-                        return write_string
+                        //let concat = format!("{}{}{}", write_string, memory_string, common_string);
+                        return increment_stack_pointer(&write_string)
                     }
                 }
                 "pop" => {
@@ -214,4 +215,12 @@ impl<'a> CodeWriter<'a> {
             }
         }
     }
+}
+
+fn increment_stack_pointer(command: &String) -> String {
+    let to_append = formatdoc!("
+    @SP
+    M=M+1
+    \n");
+    return formatdoc!("{}{}", command, to_append)
 }
