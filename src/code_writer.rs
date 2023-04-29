@@ -42,6 +42,9 @@ impl Memory {
         }
     }
 
+    /// With a string input, return the vec memory that has the same name.
+    /// 
+    /// Valid options are "argument", "local", "static", "this", "that", "pointer", and "temp"
     fn string_to_vec(&self, str: &str) -> &Vec<i16> {
         match str {
             "argument" => return &self.argument,
@@ -55,6 +58,9 @@ impl Memory {
         }
     }
 
+    /// With a string input, return the mut vec memory that has the same name at the specific index.
+    /// 
+    /// Valid options are "argument", "local", "static", "this", "that", "pointer", and "temp"
     fn string_to_vec_mut(&mut self, str: &str, index: usize) -> Option<&mut i16> {
         match str {
             "argument" => return self.argument.get_mut(index),
@@ -201,10 +207,34 @@ impl<'a> CodeWriter<'a> {
                 "pop" => {
                     let segment = self.parser.arg1().unwrap();
                     let index = self.parser.clone().arg2().unwrap();
-                    let memory = self.memory.string_to_vec_mut(segment, index as usize);
-                    let StackTypes::Number(i) = self.stack.pop().unwrap();
-                    *memory.unwrap() = i;
-                    return format!("pop");
+                    if segment == "constant" {
+                        panic!("Can't pop constant!")
+                    }
+                    else {
+                        let write_string = format!("// pop {segment} {index}");
+                        let memory = self.memory.string_to_vec_mut(segment, index as usize);
+                        let StackTypes::Number(i) = self.stack.pop().unwrap();
+                        *memory.unwrap() = i;
+
+                        let common_string = formatdoc! {
+                            "{}
+                            @{segment}
+                            D=M
+                            @{index}
+                            A=D+A
+                            D=A // D contains ram + offset
+                            @R13
+                            M=D // Temp store ram + offset
+                            @SP
+                            M=M-1
+                            A=M
+                            D=M // Grab element-- from memory
+                            @R13
+                            A=M // Jump to ram + offset
+                            M=D\n", write_string
+                        };
+                        return increment_stack_pointer(&common_string);
+                    }
                 }
                 _ => {
                     panic!("Error in matching what command to run in push_pop!")
@@ -217,6 +247,7 @@ impl<'a> CodeWriter<'a> {
     }
 }
 
+/// Append the opcodes to increment the stack pointer to the command input.
 fn increment_stack_pointer(command: &String) -> String {
     let to_append = formatdoc!("
     @SP
