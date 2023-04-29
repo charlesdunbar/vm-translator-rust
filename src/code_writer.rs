@@ -216,6 +216,9 @@ impl<'a> CodeWriter<'a> {
                         let StackTypes::Number(i) = self.stack.pop().unwrap();
                         *memory.unwrap() = i;
 
+                        debug!("Stack is now {:?}", self.stack.clone());
+                        debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
+
                         let common_string = formatdoc! {
                             "{}
                             @{segment}
