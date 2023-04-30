@@ -204,19 +204,22 @@ impl<'a> CodeWriter<'a> {
     fn generate_push_string(&mut self) -> String {
         let segment = self.parser.arg1().unwrap();
         let index = self.parser.clone().arg2().unwrap();
+        let comment_string = format!("// push {segment} {index}");
         let common_string = formatdoc!(
-            "// push {segment} {index}
-            @{index}
-            A=D+M
-            D=M
-            @SP
-            A=M
-            M=D"
+            "@SP
+            A=M // Go to Stack pointer
+            M=D // Set RAM[SP] equal to D"
         );
         if segment == "constant" {
             self.stack.push(index.into());
             debug!("Stack is now {:?}", self.stack.clone());
-            return increment_stack_pointer(&common_string)
+            let write_string = formatdoc! {
+                "{}
+                 @{index}
+                 D=A
+                 {}", comment_string, common_string
+            };
+            return increment_stack_pointer(&write_string)
         } else {
             let memory = self.memory.string_to_vec(segment);
             self.stack.push(StackTypes::Number(memory[index as usize]));
@@ -226,7 +229,11 @@ impl<'a> CodeWriter<'a> {
             let write_string = formatdoc!(
                 "{}
                 @{segment}
-                D=M", common_string
+                D=M // Store RAM location
+                @{index}
+                A=D+M // Go to RAM + Offset
+                D=M // Get RAM[index] in D
+                {}", comment_string, common_string
             );
             return increment_stack_pointer(&write_string);
         }
@@ -252,12 +259,12 @@ impl<'a> CodeWriter<'a> {
                 D=M
                 @{index}
                 A=D+A
-                D=A // D contains ram + offset
+                D=A // D contains RAM + Offset
                 @R13
-                M=D // Temp store ram + offset
+                M=D // Temp store RAM + Offset
                 {}
                 @R13
-                A=M // Jump to ram + offset
+                A=M // Jump to RAM + Offset
                 M=D", write_string, self.generate_pop_stack(true)
             };
             return increment_stack_pointer(&common_string);
@@ -281,7 +288,7 @@ fn increment_stack_pointer(command: &String) -> String {
     
     @SP
     M=M+1
-    
+
     "
     );
     return formatdoc!("{}{}", command, to_append);
