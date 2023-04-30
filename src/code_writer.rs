@@ -43,7 +43,7 @@ impl Memory {
     }
 
     /// With a string input, return the vec memory that has the same name.
-    /// 
+    ///
     /// Valid options are "argument", "local", "static", "this", "that", "pointer", and "temp"
     fn string_to_vec(&self, str: &str) -> &Vec<i16> {
         match str {
@@ -59,7 +59,7 @@ impl Memory {
     }
 
     /// With a string input, return the mut vec memory that has the same name at the specific index.
-    /// 
+    ///
     /// Valid options are "argument", "local", "static", "this", "that", "pointer", and "temp"
     fn string_to_vec_mut(&mut self, str: &str, index: usize) -> Option<&mut i16> {
         match str {
@@ -95,8 +95,13 @@ impl<'a> CodeWriter<'a> {
             "add" => {
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
-                self.stack.push(StackTypes::Number(first + second));
+                let total = first + second;
+                self.stack.push(StackTypes::Number(total));
                 debug!("Stack is now {:?}", self.stack)
+
+                // Write code to insert total at @SP-2
+
+
             }
             "sub" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -169,76 +174,8 @@ impl<'a> CodeWriter<'a> {
     pub fn write_push_pop(&mut self) -> String {
         match self.parser.current_command.split(' ').next() {
             Some(command) => match command {
-                "push" => {
-                    let segment = self.parser.arg1().unwrap();
-                    let index = self.parser.clone().arg2().unwrap();
-                    let mut write_string = format!("// push {segment} {index}\n");
-                    let common_string = formatdoc!(
-                        "@{index}
-                        A=D+M
-                        D=M
-                        @SP
-                        A=M
-                        M=D\n"
-                    );
-                    if segment == "constant" {
-                        self.stack.push(index.into());
-                        debug!("Stack is now {:?}", self.stack.clone());
-                        //write_string.push_str(&common_string);
-                        write_string = formatdoc! {"{}{}", write_string, common_string};
-                        write_string = increment_stack_pointer(&write_string);
-                        return write_string
-                    } else {
-                        let memory = self.memory.string_to_vec(segment);
-                        self.stack.push(StackTypes::Number(memory[index as usize]));
-
-                        debug!("Stack is now {:?}", self.stack.clone());
-                        debug!("Segment is now {:?}",memory);
-                        let memory_string = formatdoc!("
-                            @{segment}
-                            D=M
-                        ");
-                        write_string.push_str(&memory_string);
-                        write_string.push_str(&common_string);
-                        //let concat = format!("{}{}{}", write_string, memory_string, common_string);
-                        return increment_stack_pointer(&write_string)
-                    }
-                }
-                "pop" => {
-                    let segment = self.parser.arg1().unwrap();
-                    let index = self.parser.clone().arg2().unwrap();
-                    if segment == "constant" {
-                        panic!("Can't pop constant!")
-                    }
-                    else {
-                        let write_string = format!("// pop {segment} {index}");
-                        let memory = self.memory.string_to_vec_mut(segment, index as usize);
-                        let StackTypes::Number(i) = self.stack.pop().unwrap();
-                        *memory.unwrap() = i;
-
-                        debug!("Stack is now {:?}", self.stack.clone());
-                        debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
-
-                        let common_string = formatdoc! {
-                            "{}
-                            @{segment}
-                            D=M
-                            @{index}
-                            A=D+A
-                            D=A // D contains ram + offset
-                            @R13
-                            M=D // Temp store ram + offset
-                            @SP
-                            M=M-1
-                            A=M
-                            D=M // Grab element-- from memory
-                            @R13
-                            A=M // Jump to ram + offset
-                            M=D\n", write_string
-                        };
-                        return increment_stack_pointer(&common_string);
-                    }
-                }
+                "push" => self.generate_push_string(),
+                "pop" => self.generate_pop_string(),
                 _ => {
                     panic!("Error in matching what command to run in push_pop!")
                 }
@@ -248,13 +185,104 @@ impl<'a> CodeWriter<'a> {
             }
         }
     }
+
+    fn generate_pop_stack(&self, store_d: bool) -> String {
+        let write_string = formatdoc! {
+            "
+            @SP
+            M=M-1
+            A=M"
+        };
+        if store_d {
+            return formatdoc! {"
+            {}
+            D=M // Grab element-- from memory", write_string}
+        }
+        return write_string
+    }
+
+    fn generate_push_string(&mut self) -> String {
+        let segment = self.parser.arg1().unwrap();
+        let index = self.parser.clone().arg2().unwrap();
+        let common_string = formatdoc!(
+            "// push {segment} {index}
+            @{index}
+            A=D+M
+            D=M
+            @SP
+            A=M
+            M=D"
+        );
+        if segment == "constant" {
+            self.stack.push(index.into());
+            debug!("Stack is now {:?}", self.stack.clone());
+            return increment_stack_pointer(&common_string)
+        } else {
+            let memory = self.memory.string_to_vec(segment);
+            self.stack.push(StackTypes::Number(memory[index as usize]));
+
+            debug!("Stack is now {:?}", self.stack.clone());
+            debug!("Segment is now {:?}", memory);
+            let write_string = formatdoc!(
+                "{}
+                @{segment}
+                D=M", common_string
+            );
+            return increment_stack_pointer(&write_string);
+        }
+    }
+
+    fn generate_pop_string(&mut self) -> String {
+        let segment = self.parser.arg1().unwrap();
+        let index = self.parser.clone().arg2().unwrap();
+        if segment == "constant" {
+            panic!("Can't pop constant!")
+        } else {
+            let write_string = format!("// pop {segment} {index}");
+            let memory = self.memory.string_to_vec_mut(segment, index as usize);
+            let StackTypes::Number(i) = self.stack.pop().unwrap();
+            *memory.unwrap() = i;
+
+            debug!("Stack is now {:?}", self.stack.clone());
+            debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
+
+            let common_string = formatdoc! {
+                "{}
+                @{segment}
+                D=M
+                @{index}
+                A=D+A
+                D=A // D contains ram + offset
+                @R13
+                M=D // Temp store ram + offset
+                {}
+                @R13
+                A=M // Jump to ram + offset
+                M=D", write_string, self.generate_pop_stack(true)
+            };
+            return increment_stack_pointer(&common_string);
+        }
+    }
+
+    /// Generate a string of commands to update
+    /// @SP-2 with the calculated math operation that was performed.
+    fn generate_math_string(&mut self, total: i16) -> String {
+        let write_string = formatdoc! {
+            "// "
+        };
+        return String::from("math");
+    }
 }
 
 /// Append the opcodes to increment the stack pointer to the command input.
 fn increment_stack_pointer(command: &String) -> String {
-    let to_append = formatdoc!("
+    let to_append = formatdoc!(
+        "
+    
     @SP
     M=M+1
-    \n");
-    return formatdoc!("{}{}", command, to_append)
+    
+    "
+    );
+    return formatdoc!("{}{}", command, to_append);
 }
