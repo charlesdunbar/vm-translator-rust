@@ -1,6 +1,7 @@
 #![allow(clippy::pedantic)]
 
 use crate::parser::Parser;
+use std::collections::HashMap;
 
 use indoc::formatdoc;
 use log::debug;
@@ -79,6 +80,8 @@ pub struct CodeWriter<'a> {
     pub parser: Parser<'a>,
     stack: Vec<StackTypes>,
     memory: Memory,
+    op_lookup: HashMap<String, String>,
+    memory_lookup: HashMap<String, String>,
 }
 
 impl<'a> CodeWriter<'a> {
@@ -87,6 +90,21 @@ impl<'a> CodeWriter<'a> {
             parser: p,
             stack: Vec::new(),
             memory: Memory::new(),
+            op_lookup: HashMap::from([
+                (String::from("add"), String::from("+")),
+                (String::from("sub"), String::from("-")),
+                (String::from("neg"), String::from("!")),
+                // Next 3 only care about jump insruction after the math
+                (String::from("eq"), String::from("-")),
+                (String::from("gt"), String::from("-")),
+                (String::from("lt"), String::from("-")),
+                (String::from("and"), String::from("&")),
+                (String::from("or"), String::from("|")),
+                (String::from("not"), String::from("!")),
+                ]),
+            memory_lookup: HashMap::from([
+                (String::from("local"), String::from("LCL")),
+            ]),
         }
     }
 
@@ -97,11 +115,10 @@ impl<'a> CodeWriter<'a> {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
                 let total = first + second;
                 self.stack.push(StackTypes::Number(total));
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
 
                 // Write code to insert total at @SP-2
-
-
+                return self.generate_math_string(String::from("add"), false, None)
             }
             "sub" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -228,12 +245,12 @@ impl<'a> CodeWriter<'a> {
             debug!("Segment is now {:?}", memory);
             let write_string = formatdoc!(
                 "{}
-                @{segment}
+                @{}
                 D=M // Store RAM location
                 @{index}
                 A=D+M // Go to RAM + Offset
                 D=M // Get RAM[index] in D
-                {}", comment_string, common_string
+                {}", comment_string, self.memory_lookup[segment], common_string
             );
             return increment_stack_pointer(&write_string);
         }
@@ -255,7 +272,7 @@ impl<'a> CodeWriter<'a> {
 
             let common_string = formatdoc! {
                 "{}
-                @{segment}
+                @{}
                 D=M
                 @{index}
                 A=D+A
@@ -265,7 +282,7 @@ impl<'a> CodeWriter<'a> {
                 {}
                 @R13
                 A=M // Jump to RAM + Offset
-                M=D", write_string, self.generate_pop_stack(true)
+                M=D", write_string, self.memory_lookup[segment], self.generate_pop_stack(true)
             };
             return increment_stack_pointer(&common_string);
         }
@@ -273,11 +290,22 @@ impl<'a> CodeWriter<'a> {
 
     /// Generate a string of commands to update
     /// @SP-2 with the calculated math operation that was performed.
-    fn generate_math_string(&mut self, total: i16) -> String {
-        let write_string = formatdoc! {
-            "// "
+    fn generate_math_string(&mut self, op: String, unary: bool, jump: Option<String>) -> String {
+        let mut common_string = formatdoc! {
+            "// {op}
+            {}
+            ", self.generate_pop_stack(true)
         };
-        return String::from("math");
+        if !unary {
+            common_string.push_str(self.generate_pop_stack(false).as_str());
+            common_string.push_str("\n");
+        }
+        common_string.push_str("D=");
+        if !unary {
+            common_string.push_str("M");
+        }
+        common_string.push_str(format!("{}D", self.op_lookup[&op]).as_str());
+        return increment_stack_pointer(&common_string)
     }
 }
 
