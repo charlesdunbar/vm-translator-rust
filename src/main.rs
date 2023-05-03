@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 use code_writer::CodeWriter;
+use indoc::formatdoc;
 use parser::Parser;
 
 fn main() {
@@ -42,6 +43,13 @@ fn main() {
                 .expect("Error writing to file"),
         };
     }
+    // Finish program with infinite loop
+    let infinite_loop = formatdoc! {"
+        (INFINITE_LOOP)
+        @INFINITE_LOOP
+        0;JMP            // infinite loop
+    "};
+    out_file.write(infinite_loop.as_bytes()).expect("Error writing to file");
     // let mut a = Assembler::new(&file_contents);
     // let to_write = a.generate_binary();
     // fs::write(
