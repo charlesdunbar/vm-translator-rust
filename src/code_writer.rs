@@ -336,8 +336,11 @@ impl<'a> CodeWriter<'a> {
             @TRUE
             D;{jump}
             M=0
+            @FALSE
+            0;JMP
             (TRUE)
-            M=-1"
+            M=-1
+            (FALSE)"
         };
         common_string
     }
