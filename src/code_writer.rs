@@ -117,19 +117,22 @@ impl<'a> CodeWriter<'a> {
                 self.stack.push(StackTypes::Number(total));
                 debug!("Stack is now {:?}", self.stack);
 
-                // Write code to insert total at @SP-2
                 return self.generate_math_string(String::from("add"), false, None)
             }
             "sub" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(first - second));
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("sub"), false, None)
             }
             "neg" => {
                 let StackTypes::Number(num) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(-num));
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("neg"), true, None)
             }
             "eq" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -139,7 +142,9 @@ impl<'a> CodeWriter<'a> {
                 } else {
                     self.stack.push(StackTypes::Number(FALSE));
                 }
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("eq"), false, Some(String::from("JEQ")));
             }
             "gt" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -149,7 +154,9 @@ impl<'a> CodeWriter<'a> {
                 } else {
                     self.stack.push(StackTypes::Number(FALSE))
                 }
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("gt"), false, Some(String::from("JGT")));
             }
             "lt" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -159,24 +166,32 @@ impl<'a> CodeWriter<'a> {
                 } else {
                     self.stack.push(StackTypes::Number(FALSE))
                 }
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("lt"), false, Some(String::from("JLT")));
             }
             "and" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(first & second));
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("and"), false, None)
             }
             "or" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(first | second));
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("or"), false, None)
             }
             "not" => {
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(!first));
-                debug!("Stack is now {:?}", self.stack)
+                debug!("Stack is now {:?}", self.stack);
+
+                return self.generate_math_string(String::from("not"), true, None)
             }
             _ => {
                 panic!(
@@ -185,7 +200,7 @@ impl<'a> CodeWriter<'a> {
                 )
             }
         }
-        return format!("Math!\n");
+        //return format!("Math!\n");
     }
 
     pub fn write_push_pop(&mut self) -> String {
@@ -305,7 +320,26 @@ impl<'a> CodeWriter<'a> {
             common_string.push_str("M");
         }
         common_string.push_str(format!("{}D", self.op_lookup[&op]).as_str());
+        match jump {
+            Some(j) => {
+                common_string.push_str(self.generate_jump_string(j).as_str())
+            }
+            None => {}
+        }
         return increment_stack_pointer(&common_string)
+    }
+
+    fn generate_jump_string(&mut self, jump: String) -> String {
+        let common_string = formatdoc! {
+            "
+            
+            @TRUE
+            D;{jump}
+            M=0
+            (TRUE)
+            M=-1"
+        };
+        common_string
     }
 }
 
