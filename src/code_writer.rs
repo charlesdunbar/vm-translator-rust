@@ -75,6 +75,7 @@ impl Memory {
 }
 
 pub struct CodeWriter<'a> {
+    filename: &'a str,
     pub parser: Parser<'a>,
     stack: Vec<StackTypes>,
     memory: Memory,
@@ -85,8 +86,9 @@ pub struct CodeWriter<'a> {
 }
 
 impl<'a> CodeWriter<'a> {
-    pub fn new(p: Parser<'a>) -> Self {
+    pub fn new(p: Parser<'a>, filename: &'a str) -> Self {
         CodeWriter {
+            filename,
             parser: p,
             stack: Vec::new(),
             memory: Memory::new(),
@@ -109,7 +111,7 @@ impl<'a> CodeWriter<'a> {
                 (String::from("that"), String::from("THAT")),
             ]),
             jmp_counter: 0,
-            static_counter: 0,
+            static_counter: 16,
         }
     }
 
@@ -270,7 +272,19 @@ impl<'a> CodeWriter<'a> {
                  {}", comment_string, common_string
             };
             return increment_stack_pointer(&write_string);
-        } else {
+        } else if segment == "static" {
+            self.stack.push(index.into());
+            debug!("Stack is now {:?}", self.stack.clone());
+            let write_string = formatdoc! {
+                "{comment_string}
+                @{}.{}
+                D=M
+                {}", self.filename, self.static_counter, common_string
+            };
+            //self.static_counter += 1;
+            return increment_stack_pointer(&write_string);
+        }
+        else {
             let memory: &Vec<i16>;
 
             // pointer 0 == THIS
@@ -284,7 +298,8 @@ impl<'a> CodeWriter<'a> {
                 } else {
                     panic!("pointer can only be 0 or 1!");
                 }
-            } else {
+            } 
+            else {
                 memory = self.memory.string_to_vec(segment);
             }
             self.stack.push(StackTypes::Number(memory[index as usize]));
@@ -292,16 +307,15 @@ impl<'a> CodeWriter<'a> {
             debug!("Stack is now {:?}", self.stack.clone());
             debug!("Segment is now {:?}", memory);
             let write_string = formatdoc!(
-                "{}
+                "{comment_string}
                 @{}
                 D=M // Store RAM location
                 @{index}
                 A=D+M // Go to RAM + Offset
                 D=M // Get RAM[index] in D
-                {}",
-                comment_string,
+                {common_string}",
                 self.memory_lookup[segment],
-                common_string
+                
             );
             return increment_stack_pointer(&write_string);
         }
@@ -310,12 +324,23 @@ impl<'a> CodeWriter<'a> {
     fn generate_pop_string(&mut self) -> String {
         let segment = self.parser.arg1().unwrap();
         let index = self.parser.clone().arg2().unwrap();
+
+        let comment_string = format!("// pop {segment} {index}");
+
         if segment == "constant" {
             panic!("Can't pop constant!")
-        } else {
+        } else if segment == "static" {
+            let common_string = formatdoc!{
+                "{comment_string}
+                {}
+                @{}.{}
+                M=D", self.generate_pop_stack(true), self.filename, self.static_counter
+            };
+            self.static_counter += 1;
+            return common_string;
+        }
+        else {
             let memory: Option<&mut i16>;
-            let write_string = format!("// pop {segment} {index}");
-
             if segment == "pointer" {
                 if index == 0 {
                     memory = self.memory.string_to_vec_mut("this", index as usize);
@@ -334,7 +359,7 @@ impl<'a> CodeWriter<'a> {
             debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
 
             let common_string = formatdoc! {
-                "{}
+                "{comment_string}
                 @{}
                 D=M
                 @{index}
@@ -345,9 +370,9 @@ impl<'a> CodeWriter<'a> {
                 {}
                 @R13
                 A=M // Jump to RAM + Offset
-                M=D", write_string, self.memory_lookup[segment], self.generate_pop_stack(true)
+                M=D", self.memory_lookup[segment], self.generate_pop_stack(true)
             };
-            return increment_stack_pointer(&common_string);
+            return common_string;
         }
     }
 

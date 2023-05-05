@@ -19,10 +19,13 @@ fn main() {
     file.read_to_string(&mut file_contents)
         .expect("Could not read file");
     let p = Parser::new(&file_contents);
-    let mut c = CodeWriter::new(p);
+    let filename = format!("{}", &args[1].split('.').nth(0).unwrap());
+    let mut c = CodeWriter::new(p, &filename);
     //p.clone().print_lines();
-    let mut out_file = File::create(format!("{}.asm", &args[1].split('.').nth(0).unwrap()))
+    let mut out_file = File::create(format!("{}.asm", &filename))
         .expect("Unable to create new file");
+
+
     while c.parser.has_more_lines() {
         c.parser.advance();
         // println!(
