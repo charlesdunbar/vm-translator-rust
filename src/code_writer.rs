@@ -225,6 +225,7 @@ impl<'a> CodeWriter<'a> {
 
     pub fn write_push_pop(&mut self) -> String {
         match self.parser.current_command.split(' ').next() {
+            // TODO: move segment and index matching here, pass to push and pop
             Some(command) => match command {
                 "push" => self.generate_push_string(),
                 "pop" => self.generate_pop_string(),
@@ -296,23 +297,25 @@ impl<'a> CodeWriter<'a> {
             return increment_stack_pointer(&write_string);
         }
         else {
-            let memory: &Vec<i16>;
+            let push_segment: &str;
 
             // pointer 0 == THIS
             // pointer 1 == THAT
             //
             if segment == "pointer" {
                 if index == 0 {
-                    memory = self.memory.string_to_vec("this");
+                    push_segment = "this";
                 } else if index == 1 {
-                    memory = self.memory.string_to_vec("that");
+                    push_segment = "that";
                 } else {
                     panic!("pointer can only be 0 or 1!");
                 }
             } 
             else {
-                memory = self.memory.string_to_vec(segment);
+                push_segment = segment;
+                
             }
+            let memory = self.memory.string_to_vec(push_segment);
             self.stack.push(StackTypes::Number(memory[index as usize]));
 
             debug!("Stack is now {:?}", self.stack.clone());
@@ -325,7 +328,7 @@ impl<'a> CodeWriter<'a> {
                 A=D+A // Go to RAM + Offset
                 D=M // Get RAM[index] in D
                 {common_string}",
-                self.memory_lookup[segment],
+                self.memory_lookup[push_segment],
                 
             );
             return increment_stack_pointer(&write_string);
@@ -345,7 +348,9 @@ impl<'a> CodeWriter<'a> {
                 "{comment_string}
                 {}
                 @{}.{}
-                M=D", self.generate_pop_stack(true), self.filename, self.static_counter
+                M=D
+                
+                ", self.generate_pop_stack(true), self.filename, self.static_counter
             };
             self.static_counter += 1;
             return common_string;
@@ -361,23 +366,25 @@ impl<'a> CodeWriter<'a> {
             return common_string;
         }
         else {
-            let memory: Option<&mut i16>;
+            println!("{}: {}", segment, index);
+            let pop_segment: &str;
             if segment == "pointer" {
                 if index == 0 {
-                    memory = self.memory.string_to_vec_mut("this", index as usize);
+                    pop_segment = "this";
                 } else if index == 1 {
-                    memory = self.memory.string_to_vec_mut("that", index as usize);
+                    pop_segment = "that";
                 } else {
                     panic!("pointer can only be 0 or 1!");
                 }
             } else {
-                memory = self.memory.string_to_vec_mut(segment, index as usize);
+                pop_segment = segment;
             }
+            let memory = self.memory.string_to_vec_mut(pop_segment, index as usize);
             let StackTypes::Number(i) = self.stack.pop().unwrap();
             *memory.unwrap() = i;
 
             debug!("Stack is now {:?}", self.stack.clone());
-            debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
+            debug!("Segment is now {:?}", self.memory.string_to_vec(pop_segment));
 
             let common_string = formatdoc! {
                 "{comment_string}
@@ -393,7 +400,7 @@ impl<'a> CodeWriter<'a> {
                 A=M // Jump to RAM + Offset
                 M=D
                 
-                ", self.memory_lookup[segment], self.generate_pop_stack(true)
+                ", self.memory_lookup[pop_segment], self.generate_pop_stack(true)
             };
             return common_string;
         }
