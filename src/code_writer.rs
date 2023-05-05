@@ -297,25 +297,31 @@ impl<'a> CodeWriter<'a> {
             return increment_stack_pointer(&write_string);
         }
         else {
-            let push_segment: &str;
 
             // pointer 0 == THIS
             // pointer 1 == THAT
-            //
+            // push pointer 0 pushes THIS's value to the stack
             if segment == "pointer" {
+                let ptr_segment: &str;
                 if index == 0 {
-                    push_segment = "this";
+                    ptr_segment = "this";
                 } else if index == 1 {
-                    push_segment = "that";
+                    ptr_segment = "that";
                 } else {
                     panic!("pointer can only be 0 or 1!");
                 }
-            } 
-            else {
-                push_segment = segment;
-                
+                let write_string = formatdoc!{
+                    "{comment_string}
+                    @{}
+                    D=M
+                    {common_string}", self.memory_lookup[ptr_segment]
+                };
+
+                return increment_stack_pointer(&write_string);
+
             }
-            let memory = self.memory.string_to_vec(push_segment);
+
+            let memory = self.memory.string_to_vec(segment);
             self.stack.push(StackTypes::Number(memory[index as usize]));
 
             debug!("Stack is now {:?}", self.stack.clone());
@@ -328,7 +334,7 @@ impl<'a> CodeWriter<'a> {
                 A=D+A // Go to RAM + Offset
                 D=M // Get RAM[index] in D
                 {common_string}",
-                self.memory_lookup[push_segment],
+                self.memory_lookup[segment],
                 
             );
             return increment_stack_pointer(&write_string);
@@ -367,24 +373,33 @@ impl<'a> CodeWriter<'a> {
         }
         else {
             println!("{}: {}", segment, index);
-            let pop_segment: &str;
+            // pop pointer 0 sets THIS's memory to the stack value
             if segment == "pointer" {
+                let ptr_segment: &str;
                 if index == 0 {
-                    pop_segment = "this";
+                    ptr_segment = "this";
                 } else if index == 1 {
-                    pop_segment = "that";
+                    ptr_segment = "that";
                 } else {
                     panic!("pointer can only be 0 or 1!");
                 }
-            } else {
-                pop_segment = segment;
+                let common_string = formatdoc! {
+                    "{comment_string}
+                    {}
+                    @{}
+                    M=D
+
+                    ", self.generate_pop_stack(true), self.memory_lookup[ptr_segment]
+                };
+                return common_string
+            
             }
-            let memory = self.memory.string_to_vec_mut(pop_segment, index as usize);
+            let memory = self.memory.string_to_vec_mut(segment, index as usize);
             let StackTypes::Number(i) = self.stack.pop().unwrap();
             *memory.unwrap() = i;
 
             debug!("Stack is now {:?}", self.stack.clone());
-            debug!("Segment is now {:?}", self.memory.string_to_vec(pop_segment));
+            debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
 
             let common_string = formatdoc! {
                 "{comment_string}
@@ -400,7 +415,7 @@ impl<'a> CodeWriter<'a> {
                 A=M // Jump to RAM + Offset
                 M=D
                 
-                ", self.memory_lookup[pop_segment], self.generate_pop_stack(true)
+                ", self.memory_lookup[segment], self.generate_pop_stack(true)
             };
             return common_string;
         }
