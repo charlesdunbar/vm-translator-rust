@@ -109,6 +109,7 @@ impl<'a> CodeWriter<'a> {
                 (String::from("argument"), String::from("ARG")),
                 (String::from("this"), String::from("THIS")),
                 (String::from("that"), String::from("THAT")),
+                (String::from("temp"), String::from("TEMP")),
             ]),
             jmp_counter: 0,
             static_counter: 16,
@@ -321,7 +322,7 @@ impl<'a> CodeWriter<'a> {
                 @{}
                 D=M // Store RAM location
                 @{index}
-                A=D+M // Go to RAM + Offset
+                A=D+A // Go to RAM + Offset
                 D=M // Get RAM[index] in D
                 {common_string}",
                 self.memory_lookup[segment],
@@ -353,7 +354,9 @@ impl<'a> CodeWriter<'a> {
                 "{comment_string}
                 {}
                 @{}
-                M=D", self.generate_pop_stack(true), index + 5
+                M=D
+                
+                ", self.generate_pop_stack(true), index + 5
             };
             return common_string;
         }
@@ -388,7 +391,9 @@ impl<'a> CodeWriter<'a> {
                 {}
                 @R13
                 A=M // Jump to RAM + Offset
-                M=D", self.memory_lookup[segment], self.generate_pop_stack(true)
+                M=D
+                
+                ", self.memory_lookup[segment], self.generate_pop_stack(true)
             };
             return common_string;
         }
