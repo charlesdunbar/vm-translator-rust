@@ -82,6 +82,7 @@ pub struct CodeWriter<'a> {
     memory: Memory,
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
+    jmp_counter: i16,
 }
 
 impl<'a> CodeWriter<'a> {
@@ -93,7 +94,7 @@ impl<'a> CodeWriter<'a> {
             op_lookup: HashMap::from([
                 (String::from("add"), String::from("+")),
                 (String::from("sub"), String::from("-")),
-                (String::from("neg"), String::from("!")),
+                (String::from("neg"), String::from("-")),
                 // Next 3 only care about jump insruction after the math
                 (String::from("eq"), String::from("-")),
                 (String::from("gt"), String::from("-")),
@@ -104,7 +105,11 @@ impl<'a> CodeWriter<'a> {
                 ]),
             memory_lookup: HashMap::from([
                 (String::from("local"), String::from("LCL")),
+                (String::from("argument"), String::from("ARG")),
+                (String::from("this"), String::from("THIS")),
+                (String::from("that"), String::from("THAT")),
             ]),
+            jmp_counter: 0,
         }
     }
 
@@ -315,7 +320,10 @@ impl<'a> CodeWriter<'a> {
             common_string.push_str(self.generate_pop_stack(false).as_str());
             common_string.push_str("\n");
         }
-        common_string.push_str("D=");
+        match jump {
+            Some(_) => common_string.push_str("D="),
+            _ => common_string.push_str("M="),
+        }// D if jump, M if math.
         if !unary {
             common_string.push_str("M");
         }
@@ -333,15 +341,20 @@ impl<'a> CodeWriter<'a> {
         let common_string = formatdoc! {
             "
             
-            @TRUE
+            @TRUE_{}
             D;{jump}
+            @SP
+            A=M
             M=0
-            @FALSE
+            @FALSE_{}
             0;JMP
-            (TRUE)
+            (TRUE_{})
+            @SP
+            A=M
             M=-1
-            (FALSE)"
+            (FALSE_{})", self.jmp_counter, self.jmp_counter, self.jmp_counter, self.jmp_counter
         };
+        self.jmp_counter += 1;
         common_string
     }
 }
