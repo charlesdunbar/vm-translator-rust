@@ -101,7 +101,7 @@ impl<'a> CodeWriter<'a> {
                 (String::from("and"), String::from("&")),
                 (String::from("or"), String::from("|")),
                 (String::from("not"), String::from("!")),
-                ]),
+            ]),
             memory_lookup: HashMap::from([
                 (String::from("local"), String::from("LCL")),
                 (String::from("argument"), String::from("ARG")),
@@ -122,7 +122,7 @@ impl<'a> CodeWriter<'a> {
                 self.stack.push(StackTypes::Number(total));
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("add"), false, None)
+                return self.generate_math_string(String::from("add"), false, None);
             }
             "sub" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -130,14 +130,14 @@ impl<'a> CodeWriter<'a> {
                 self.stack.push(StackTypes::Number(first - second));
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("sub"), false, None)
+                return self.generate_math_string(String::from("sub"), false, None);
             }
             "neg" => {
                 let StackTypes::Number(num) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(-num));
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("neg"), true, None)
+                return self.generate_math_string(String::from("neg"), true, None);
             }
             "eq" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -149,7 +149,11 @@ impl<'a> CodeWriter<'a> {
                 }
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("eq"), false, Some(String::from("JEQ")));
+                return self.generate_math_string(
+                    String::from("eq"),
+                    false,
+                    Some(String::from("JEQ")),
+                );
             }
             "gt" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -161,7 +165,11 @@ impl<'a> CodeWriter<'a> {
                 }
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("gt"), false, Some(String::from("JGT")));
+                return self.generate_math_string(
+                    String::from("gt"),
+                    false,
+                    Some(String::from("JGT")),
+                );
             }
             "lt" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -173,7 +181,11 @@ impl<'a> CodeWriter<'a> {
                 }
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("lt"), false, Some(String::from("JLT")));
+                return self.generate_math_string(
+                    String::from("lt"),
+                    false,
+                    Some(String::from("JLT")),
+                );
             }
             "and" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -181,7 +193,7 @@ impl<'a> CodeWriter<'a> {
                 self.stack.push(StackTypes::Number(first & second));
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("and"), false, None)
+                return self.generate_math_string(String::from("and"), false, None);
             }
             "or" => {
                 let StackTypes::Number(second) = self.stack.pop().unwrap();
@@ -189,14 +201,14 @@ impl<'a> CodeWriter<'a> {
                 self.stack.push(StackTypes::Number(first | second));
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("or"), false, None)
+                return self.generate_math_string(String::from("or"), false, None);
             }
             "not" => {
                 let StackTypes::Number(first) = self.stack.pop().unwrap();
                 self.stack.push(StackTypes::Number(!first));
                 debug!("Stack is now {:?}", self.stack);
 
-                return self.generate_math_string(String::from("not"), true, None)
+                return self.generate_math_string(String::from("not"), true, None);
             }
             _ => {
                 panic!(
@@ -233,9 +245,9 @@ impl<'a> CodeWriter<'a> {
         if store_d {
             return formatdoc! {"
             {}
-            D=M // Grab element-- from memory", write_string}
+            D=M // Grab element-- from memory", write_string};
         }
-        return write_string
+        return write_string;
     }
 
     fn generate_push_string(&mut self) -> String {
@@ -257,9 +269,9 @@ impl<'a> CodeWriter<'a> {
                  D=A
                  {}", comment_string, common_string
             };
-            return increment_stack_pointer(&write_string)
+            return increment_stack_pointer(&write_string);
         } else {
-            let memory:&Vec<i16>;
+            let memory: &Vec<i16>;
 
             // pointer 0 == THIS
             // pointer 1 == THAT
@@ -286,7 +298,10 @@ impl<'a> CodeWriter<'a> {
                 @{index}
                 A=D+M // Go to RAM + Offset
                 D=M // Get RAM[index] in D
-                {}", comment_string, self.memory_lookup[segment], common_string
+                {}",
+                comment_string,
+                self.memory_lookup[segment],
+                common_string
             );
             return increment_stack_pointer(&write_string);
         }
@@ -351,18 +366,16 @@ impl<'a> CodeWriter<'a> {
         match jump {
             Some(_) => common_string.push_str("D="),
             _ => common_string.push_str("M="),
-        }// D if jump, M if math.
+        } // D if jump, M if math.
         if !unary {
             common_string.push_str("M");
         }
         common_string.push_str(format!("{}D", self.op_lookup[&op]).as_str());
         match jump {
-            Some(j) => {
-                common_string.push_str(self.generate_jump_string(j).as_str())
-            }
+            Some(j) => common_string.push_str(self.generate_jump_string(j).as_str()),
             None => {}
         }
-        return increment_stack_pointer(&common_string)
+        return increment_stack_pointer(&common_string);
     }
 
     fn generate_jump_string(&mut self, jump: String) -> String {
