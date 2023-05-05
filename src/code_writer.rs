@@ -53,7 +53,6 @@ impl Memory {
             "static" => return &self.static_vec,
             "this" => return &self.this,
             "that" => return &self.that,
-            "pointer" => return &self.pointer,
             "temp" => return &self.temp,
             _ => panic!("Error matching what vec to return!"),
         }
@@ -69,7 +68,6 @@ impl Memory {
             "static" => return self.static_vec.get_mut(index),
             "this" => return self.this.get_mut(index),
             "that" => return self.that.get_mut(index),
-            "pointer" => return self.pointer.get_mut(index),
             "temp" => return self.temp.get_mut(index),
             _ => panic!("Error matching what vec to return!"),
         }
@@ -83,6 +81,7 @@ pub struct CodeWriter<'a> {
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
+    static_counter: i16,
 }
 
 impl<'a> CodeWriter<'a> {
@@ -110,6 +109,7 @@ impl<'a> CodeWriter<'a> {
                 (String::from("that"), String::from("THAT")),
             ]),
             jmp_counter: 0,
+            static_counter: 0,
         }
     }
 
@@ -247,6 +247,7 @@ impl<'a> CodeWriter<'a> {
             A=M // Go to Stack pointer
             M=D // Set RAM[SP] equal to D"
         );
+        // constant doesn't need to store in any memory
         if segment == "constant" {
             self.stack.push(index.into());
             debug!("Stack is now {:?}", self.stack.clone());
@@ -258,7 +259,22 @@ impl<'a> CodeWriter<'a> {
             };
             return increment_stack_pointer(&write_string)
         } else {
-            let memory = self.memory.string_to_vec(segment);
+            let memory:&Vec<i16>;
+
+            // pointer 0 == THIS
+            // pointer 1 == THAT
+            //
+            if segment == "pointer" {
+                if index == 0 {
+                    memory = self.memory.string_to_vec("this");
+                } else if index == 1 {
+                    memory = self.memory.string_to_vec("that");
+                } else {
+                    panic!("pointer can only be 0 or 1!");
+                }
+            } else {
+                memory = self.memory.string_to_vec(segment);
+            }
             self.stack.push(StackTypes::Number(memory[index as usize]));
 
             debug!("Stack is now {:?}", self.stack.clone());
@@ -282,8 +298,20 @@ impl<'a> CodeWriter<'a> {
         if segment == "constant" {
             panic!("Can't pop constant!")
         } else {
+            let memory: Option<&mut i16>;
             let write_string = format!("// pop {segment} {index}");
-            let memory = self.memory.string_to_vec_mut(segment, index as usize);
+
+            if segment == "pointer" {
+                if index == 0 {
+                    memory = self.memory.string_to_vec_mut("this", index as usize);
+                } else if index == 1 {
+                    memory = self.memory.string_to_vec_mut("that", index as usize);
+                } else {
+                    panic!("pointer can only be 0 or 1!");
+                }
+            } else {
+                memory = self.memory.string_to_vec_mut(segment, index as usize);
+            }
             let StackTypes::Number(i) = self.stack.pop().unwrap();
             *memory.unwrap() = i;
 
