@@ -283,6 +283,16 @@ impl<'a> CodeWriter<'a> {
             };
             //self.static_counter += 1;
             return increment_stack_pointer(&write_string);
+        } else if segment == "temp" {
+            self.stack.push(index.into());
+            debug!("Stack is now {:?}", self.stack.clone());
+            let write_string = formatdoc! {
+                "{comment_string}
+                @{}
+                D=M
+                {}", index + 5, common_string
+            };
+            return increment_stack_pointer(&write_string);
         }
         else {
             let memory: &Vec<i16>;
@@ -337,6 +347,14 @@ impl<'a> CodeWriter<'a> {
                 M=D", self.generate_pop_stack(true), self.filename, self.static_counter
             };
             self.static_counter += 1;
+            return common_string;
+        } else if segment == "temp" {
+            let common_string = formatdoc!{
+                "{comment_string}
+                {}
+                @{}
+                M=D", self.generate_pop_stack(true), index + 5
+            };
             return common_string;
         }
         else {
