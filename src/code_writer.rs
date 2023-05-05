@@ -26,7 +26,6 @@ struct Memory {
     static_vec: Vec<i16>,
     this: Vec<i16>,
     that: Vec<i16>,
-    pointer: Vec<i16>,
     temp: Vec<i16>,
 }
 
@@ -38,7 +37,6 @@ impl Memory {
             static_vec: vec![0; 0x6000],
             this: vec![0; 0x6000],
             that: vec![0; 0x6000],
-            pointer: vec![0; 0x6000],
             temp: vec![0; 0x6000],
         }
     }
