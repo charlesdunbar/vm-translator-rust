@@ -22,9 +22,8 @@ fn main() {
     let filename = format!("{}", &args[1].split('.').nth(0).unwrap());
     let mut c = CodeWriter::new(p, &filename);
     //p.clone().print_lines();
-    let mut out_file = File::create(format!("{}.asm", &filename))
-        .expect("Unable to create new file");
-
+    let mut out_file =
+        File::create(format!("{}.asm", &filename)).expect("Unable to create new file");
 
     while c.parser.has_more_lines() {
         c.parser.advance();
