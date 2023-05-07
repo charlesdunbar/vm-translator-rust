@@ -21,18 +21,11 @@ fn main() {
     let p = Parser::new(&file_contents);
     let filename = format!("{}", &args[1].split('.').nth(0).unwrap());
     let mut c = CodeWriter::new(p, &filename);
-    //p.clone().print_lines();
     let mut out_file =
         File::create(format!("{}.asm", &filename)).expect("Unable to create new file");
 
     while c.parser.has_more_lines() {
         c.parser.advance();
-        // println!(
-        //     "{:?} {:?} {:?}",
-        //     c.parser.command_type(),
-        //     c.parser.arg1(),
-        //     c.parser.clone().arg2()
-        // );
         match c.parser.command_type() {
             parser::CommandType::ARITHMETIC => out_file
                 .write(c.write_arithmetic().as_bytes())
@@ -46,17 +39,10 @@ fn main() {
         };
     }
     // Finish program with infinite loop
-    // let infinite_loop = formatdoc! {"
-    //     (INFINITE_LOOP)
-    //     @INFINITE_LOOP
-    //     0;JMP            // infinite loop
-    // "};
-    // out_file.write(infinite_loop.as_bytes()).expect("Error writing to file");
-    // let mut a = Assembler::new(&file_contents);
-    // let to_write = a.generate_binary();
-    // fs::write(
-    //     format!("{}.hack", &args[1].split('.').nth(0).unwrap()),
-    //     to_write.join("\n"),
-    // )
-    // .expect("Unable to write file");
+    let infinite_loop = formatdoc! {"
+        (INFINITE_LOOP)
+        @INFINITE_LOOP
+        0;JMP            // infinite loop
+    "};
+    out_file.write(infinite_loop.as_bytes()).expect("Error writing to file");
 }
