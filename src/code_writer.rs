@@ -323,7 +323,7 @@ impl<'a> CodeWriter<'a> {
             self.stack.push(StackTypes::Number(memory[index as usize]));
 
             debug!("Stack is now {:?}", self.stack.clone());
-            debug!("Segment is now {:?}", memory);
+            debug!("{segment} is now {:?}", memory);
             let write_string = formatdoc!(
                 "{comment_string}
                 @{}
@@ -370,7 +370,6 @@ impl<'a> CodeWriter<'a> {
             return common_string;
         }
         else {
-            println!("{}: {}", segment, index);
             // pop pointer 0 sets THIS's memory to the stack value
             if segment == "pointer" {
                 let ptr_segment: &str;
@@ -397,7 +396,7 @@ impl<'a> CodeWriter<'a> {
             *memory.unwrap() = i;
 
             debug!("Stack is now {:?}", self.stack.clone());
-            debug!("Segment is now {:?}", self.memory.string_to_vec(segment));
+            debug!("{segment} is now {:?}", self.memory.string_to_vec(segment));
 
             let common_string = formatdoc! {
                 "{comment_string}
