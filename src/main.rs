@@ -44,5 +44,7 @@ fn main() {
         @INFINITE_LOOP
         0;JMP            // infinite loop
     "};
-    out_file.write(infinite_loop.as_bytes()).expect("Error writing to file");
+    out_file
+        .write(infinite_loop.as_bytes())
+        .expect("Error writing to file");
 }
