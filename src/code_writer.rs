@@ -236,11 +236,14 @@ impl<'a> CodeWriter<'a> {
     }
 
     fn generate_pop_stack(&self, store_d: bool) -> String {
+        // AM=M-1 is the shorter version of
+        //
+        // M=M=1
+        // A=M
         let write_string = formatdoc! {
             "
             @SP
-            M=M-1
-            A=M"
+            AM=M-1"
         };
         if store_d {
             return formatdoc! {"
@@ -394,8 +397,6 @@ impl<'a> CodeWriter<'a> {
                 @{}
                 D=M
                 @{index}
-                // A=D+A
-                // D=A // D contains RAM + Offset
                 AD=D+A
                 @R13
                 M=D // Temp store RAM + Offset
@@ -445,13 +446,13 @@ impl<'a> CodeWriter<'a> {
             D;{jump}
             @SP
             A=M
-            M=0
+            M={FALSE}
             @FALSE_{}
             0;JMP
             (TRUE_{})
             @SP
             A=M
-            M=-1
+            M={TRUE}
             (FALSE_{})", self.jmp_counter, self.jmp_counter, self.jmp_counter, self.jmp_counter
         };
         self.jmp_counter += 1;
