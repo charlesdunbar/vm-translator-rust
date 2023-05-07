@@ -216,6 +216,7 @@ impl<'a> CodeWriter<'a> {
                 )
             }
         }
+        //return format!("Math!\n");
     }
 
     pub fn write_push_pop(&mut self) -> String {
