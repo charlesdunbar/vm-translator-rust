@@ -394,8 +394,9 @@ impl<'a> CodeWriter<'a> {
                 @{}
                 D=M
                 @{index}
-                A=D+A
-                D=A // D contains RAM + Offset
+                // A=D+A
+                // D=A // D contains RAM + Offset
+                AD=D+A
                 @R13
                 M=D // Temp store RAM + Offset
                 {}
