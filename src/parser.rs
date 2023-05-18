@@ -92,11 +92,17 @@ impl<'a> Parser<'a> {
                 panic!("Tried to get the command type of nothing!")
             }
             Some(command) => match command {
-                "push" => return CommandType::PUSH,
-                "pop" => return CommandType::POP,
+                "push" => CommandType::PUSH,
+                "pop" => CommandType::POP,
                 "add" | "sub" | "neg" | "eq" | "gt" | "lt" | "and" | "or" | "not" => {
-                    return CommandType::ARITHMETIC
+                    CommandType::ARITHMETIC
                 }
+                "label" => CommandType::LABEL,
+                "goto" => CommandType::GOTO,
+                "if-goto" => CommandType::IF,
+                "function" => CommandType::FUNCTION,
+                "call" => CommandType::CALL,
+                "return" => CommandType::RETURN,
                 _ => panic!("reached unreachable branch of command_type match"),
             },
         }

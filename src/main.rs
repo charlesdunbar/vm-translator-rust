@@ -33,6 +33,9 @@ fn main() {
             parser::CommandType::PUSH | parser::CommandType::POP => out_file
                 .write(c.write_push_pop().as_bytes())
                 .expect("Error writing to file"),
+            parser::CommandType::LABEL => out_file
+                .write(c.write_label().as_bytes())
+                .expect("Error writing to file"),
             _ => out_file
                 .write(String::from("Need to Implement").as_bytes())
                 .expect("Error writing to file"),

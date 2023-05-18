@@ -44,6 +44,15 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
+    pub fn write_label(&self) -> String {
+        let label = self.parser.arg1().unwrap();
+        let write_string = formatdoc! {
+            "({label})
+            "
+        };
+        write_string
+    }
+
     pub fn write_arithmetic(&mut self) -> String {
         match self.parser.arg1() {
             Some(op) => match op {
@@ -69,7 +78,6 @@ impl<'a> CodeWriter<'a> {
             },
             None => panic!("Error matching write_argument operation!"),
         }
-        //return format!("Math!\n");
     }
 
     pub fn write_push_pop(&mut self) -> String {
@@ -100,9 +108,9 @@ impl<'a> CodeWriter<'a> {
         if store_d {
             return formatdoc! {"
             {}
-            D=M // Grab element-- from memory", write_string};
+            D=M // Grab element-- from memory", write_string}
         }
-        return write_string;
+        write_string
     }
 
     fn generate_push_string(&mut self) -> String {
@@ -122,7 +130,7 @@ impl<'a> CodeWriter<'a> {
                  D=A
                  {}", comment_string, common_string
             };
-            return increment_stack_pointer(&write_string);
+            increment_stack_pointer(&write_string)
         } else if segment == "static" {
             let write_string = formatdoc! {
                 "{comment_string}
@@ -130,7 +138,7 @@ impl<'a> CodeWriter<'a> {
                 D=M
                 {common_string}", self.filename
             };
-            return increment_stack_pointer(&write_string);
+            increment_stack_pointer(&write_string)
         } else if segment == "temp" {
             let write_string = formatdoc! {
                 "{comment_string}
@@ -138,7 +146,7 @@ impl<'a> CodeWriter<'a> {
                 D=M
                 {}", index + 5, common_string
             };
-            return increment_stack_pointer(&write_string);
+            increment_stack_pointer(&write_string)
         } else {
             // pointer 0 == THIS
             // pointer 1 == THAT
@@ -159,7 +167,7 @@ impl<'a> CodeWriter<'a> {
                     {common_string}", self.memory_lookup[ptr_segment]
                 };
 
-                return increment_stack_pointer(&write_string);
+                return increment_stack_pointer(&write_string)
             }
             let write_string = formatdoc!(
                 "{comment_string}
@@ -171,7 +179,7 @@ impl<'a> CodeWriter<'a> {
                 {common_string}",
                 self.memory_lookup[segment],
             );
-            return increment_stack_pointer(&write_string);
+            increment_stack_pointer(&write_string)
         }
     }
 
@@ -192,7 +200,7 @@ impl<'a> CodeWriter<'a> {
                 
                 ", self.generate_pop_stack(true), self.filename
             };
-            return common_string;
+            common_string
         } else if segment == "temp" {
             let common_string = formatdoc! {
                 "{comment_string}
@@ -202,7 +210,7 @@ impl<'a> CodeWriter<'a> {
                 
                 ", self.generate_pop_stack(true), index + 5
             };
-            return common_string;
+            common_string
         } else {
             // pop pointer 0 sets THIS's memory to the stack value
             if segment == "pointer" {
@@ -222,7 +230,7 @@ impl<'a> CodeWriter<'a> {
 
                     ", self.generate_pop_stack(true), self.memory_lookup[ptr_segment]
                 };
-                return common_string;
+                return common_string
             }
 
             // A=D+A
@@ -245,7 +253,7 @@ impl<'a> CodeWriter<'a> {
                 
                 ", self.memory_lookup[segment], self.generate_pop_stack(true)
             };
-            return common_string;
+            common_string
         }
     }
 
@@ -273,7 +281,7 @@ impl<'a> CodeWriter<'a> {
             Some(j) => common_string.push_str(self.generate_jump_string(j).as_str()),
             None => {}
         }
-        return increment_stack_pointer(&common_string);
+        increment_stack_pointer(&common_string)
     }
 
     fn generate_jump_string(&mut self, jump: String) -> String {
@@ -308,5 +316,5 @@ fn increment_stack_pointer(command: &String) -> String {
 
     "
     );
-    return formatdoc!("{}{}", command, to_append);
+    formatdoc!("{}{}", command, to_append)
 }
