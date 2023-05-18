@@ -43,7 +43,7 @@ impl Memory {
 
     /// With a string input, return the vec memory that has the same name.
     ///
-    /// Valid options are "argument", "local", "static", "this", "that", "pointer", and "temp"
+    /// Valid options are "argument", "local", "static", "this", "that", and "temp"
     fn string_to_vec(&self, str: &str) -> &Vec<i16> {
         match str {
             "argument" => return &self.argument,
@@ -58,7 +58,7 @@ impl Memory {
 
     /// With a string input, return the mut vec memory that has the same name at the specific index.
     ///
-    /// Valid options are "argument", "local", "static", "this", "that", "pointer", and "temp"
+    /// Valid options are "argument", "local", "static", "this", "that", and "temp"
     fn string_to_vec_mut(&mut self, str: &str, index: usize) -> Option<&mut i16> {
         match str {
             "argument" => return self.argument.get_mut(index),
@@ -230,6 +230,10 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
+    /// Generate a string of hack asm to pop the value off the stack
+    /// 
+    /// # Arguments
+    /// * `store_d` - if true, store the popped value in D 
     fn generate_pop_stack(&self, store_d: bool) -> String {
         // AM=M-1 is the shorter version of
         //
@@ -274,7 +278,6 @@ impl<'a> CodeWriter<'a> {
             let write_string = formatdoc! {
                 "{comment_string}
                 @{}.{index}
-
                 D=M
                 {common_string}", self.filename
             };
