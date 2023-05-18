@@ -4,79 +4,13 @@ use crate::parser::{CommandType, Parser};
 use std::collections::HashMap;
 
 use indoc::formatdoc;
-use log::debug;
 
 const TRUE: i16 = -1;
 const FALSE: i16 = 0;
 
-#[derive(Debug, Clone)]
-enum StackTypes {
-    Number(i16),
-}
-
-impl From<i16> for StackTypes {
-    fn from(value: i16) -> Self {
-        StackTypes::Number(value)
-    }
-}
-
-struct Memory {
-    argument: Vec<i16>,
-    local: Vec<i16>,
-    static_vec: Vec<i16>,
-    this: Vec<i16>,
-    that: Vec<i16>,
-    temp: Vec<i16>,
-}
-
-impl Memory {
-    fn new() -> Self {
-        Memory {
-            argument: vec![0; 0x6000],
-            local: vec![0; 0x6000],
-            static_vec: vec![0; 0x6000],
-            this: vec![0; 0x6000],
-            that: vec![0; 0x6000],
-            temp: vec![0; 0x6000],
-        }
-    }
-
-    /// With a string input, return the vec memory that has the same name.
-    ///
-    /// Valid options are "argument", "local", "static", "this", "that", and "temp"
-    fn string_to_vec(&self, str: &str) -> &Vec<i16> {
-        match str {
-            "argument" => return &self.argument,
-            "local" => return &self.local,
-            "static" => return &self.static_vec,
-            "this" => return &self.this,
-            "that" => return &self.that,
-            "temp" => return &self.temp,
-            _ => panic!("Error matching what vec to return!"),
-        }
-    }
-
-    /// With a string input, return the mut vec memory that has the same name at the specific index.
-    ///
-    /// Valid options are "argument", "local", "static", "this", "that", and "temp"
-    fn string_to_vec_mut(&mut self, str: &str, index: usize) -> Option<&mut i16> {
-        match str {
-            "argument" => return self.argument.get_mut(index),
-            "local" => return self.local.get_mut(index),
-            "static" => return self.static_vec.get_mut(index),
-            "this" => return self.this.get_mut(index),
-            "that" => return self.that.get_mut(index),
-            "temp" => return self.temp.get_mut(index),
-            _ => panic!("Error matching what vec to return!"),
-        }
-    }
-}
-
 pub struct CodeWriter<'a> {
     filename: &'a str,
     pub parser: Parser<'a>,
-    stack: Vec<StackTypes>,
-    memory: Memory,
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
@@ -87,8 +21,6 @@ impl<'a> CodeWriter<'a> {
         CodeWriter {
             filename,
             parser: p,
-            stack: Vec::new(),
-            memory: Memory::new(),
             op_lookup: HashMap::from([
                 (String::from("add"), String::from("+")),
                 (String::from("sub"), String::from("-")),
@@ -113,108 +45,29 @@ impl<'a> CodeWriter<'a> {
     }
 
     pub fn write_arithmetic(&mut self) -> String {
-        match self.parser.arg1().unwrap() {
-            "add" => {
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let total = first + second;
-                self.stack.push(StackTypes::Number(total));
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(String::from("add"), false, None);
-            }
-            "sub" => {
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                self.stack.push(StackTypes::Number(first - second));
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(String::from("sub"), false, None);
-            }
-            "neg" => {
-                let StackTypes::Number(num) = self.stack.pop().unwrap();
-                self.stack.push(StackTypes::Number(-num));
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(String::from("neg"), true, None);
-            }
-            "eq" => {
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                if first == second {
-                    self.stack.push(StackTypes::Number(TRUE));
-                } else {
-                    self.stack.push(StackTypes::Number(FALSE));
+        match self.parser.arg1() {
+            Some(op) => match op {
+                "add" | "sub" | "and" | "or" => {
+                    self.generate_math_string(String::from(op), false, None)
                 }
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(
-                    String::from("eq"),
-                    false,
-                    Some(String::from("JEQ")),
-                );
-            }
-            "gt" => {
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                if first > second {
-                    self.stack.push(StackTypes::Number(TRUE))
-                } else {
-                    self.stack.push(StackTypes::Number(FALSE))
+                "neg" | "not" => self.generate_math_string(String::from(op), true, None),
+                "eq" => {
+                    self.generate_math_string(String::from("eq"), false, Some(String::from("JEQ")))
                 }
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(
-                    String::from("gt"),
-                    false,
-                    Some(String::from("JGT")),
-                );
-            }
-            "lt" => {
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                if first < second {
-                    self.stack.push(StackTypes::Number(TRUE))
-                } else {
-                    self.stack.push(StackTypes::Number(FALSE))
+                "gt" => {
+                    self.generate_math_string(String::from("gt"), false, Some(String::from("JGT")))
                 }
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(
-                    String::from("lt"),
-                    false,
-                    Some(String::from("JLT")),
-                );
-            }
-            "and" => {
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                self.stack.push(StackTypes::Number(first & second));
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(String::from("and"), false, None);
-            }
-            "or" => {
-                let StackTypes::Number(second) = self.stack.pop().unwrap();
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                self.stack.push(StackTypes::Number(first | second));
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(String::from("or"), false, None);
-            }
-            "not" => {
-                let StackTypes::Number(first) = self.stack.pop().unwrap();
-                self.stack.push(StackTypes::Number(!first));
-                debug!("Stack is now {:?}", self.stack);
-
-                return self.generate_math_string(String::from("not"), true, None);
-            }
-            _ => {
-                panic!(
-                    "Tried to do math on a not math ({:?}) thing!",
-                    self.parser.arg1()
-                )
-            }
+                "lt" => {
+                    self.generate_math_string(String::from("lt"), false, Some(String::from("JLT")))
+                }
+                _ => {
+                    panic!(
+                        "Tried to do math on a not math ({:?}) thing!",
+                        self.parser.arg1()
+                    )
+                }
+            },
+            None => panic!("Error matching write_argument operation!"),
         }
         //return format!("Math!\n");
     }
@@ -231,9 +84,9 @@ impl<'a> CodeWriter<'a> {
     }
 
     /// Generate a string of hack asm to pop the value off the stack
-    /// 
+    ///
     /// # Arguments
-    /// * `store_d` - if true, store the popped value in D 
+    /// * `store_d` - if true, store the popped value in D
     fn generate_pop_stack(&self, store_d: bool) -> String {
         // AM=M-1 is the shorter version of
         //
@@ -263,8 +116,6 @@ impl<'a> CodeWriter<'a> {
         );
         // constant doesn't need to store in any memory
         if segment == "constant" {
-            self.stack.push(index.into());
-            debug!("Stack is now {:?}", self.stack.clone());
             let write_string = formatdoc! {
                 "{}
                  @{index}
@@ -273,8 +124,6 @@ impl<'a> CodeWriter<'a> {
             };
             return increment_stack_pointer(&write_string);
         } else if segment == "static" {
-            self.stack.push(index.into());
-            debug!("Stack is now {:?}", self.stack.clone());
             let write_string = formatdoc! {
                 "{comment_string}
                 @{}.{index}
@@ -283,8 +132,6 @@ impl<'a> CodeWriter<'a> {
             };
             return increment_stack_pointer(&write_string);
         } else if segment == "temp" {
-            self.stack.push(index.into());
-            debug!("Stack is now {:?}", self.stack.clone());
             let write_string = formatdoc! {
                 "{comment_string}
                 @{}
@@ -314,12 +161,6 @@ impl<'a> CodeWriter<'a> {
 
                 return increment_stack_pointer(&write_string);
             }
-
-            let memory = self.memory.string_to_vec(segment);
-            self.stack.push(StackTypes::Number(memory[index as usize]));
-
-            debug!("Stack is now {:?}", self.stack.clone());
-            debug!("{segment} is now {:?}", memory);
             let write_string = formatdoc!(
                 "{comment_string}
                 @{}
@@ -383,12 +224,6 @@ impl<'a> CodeWriter<'a> {
                 };
                 return common_string;
             }
-            let memory = self.memory.string_to_vec_mut(segment, index as usize);
-            let StackTypes::Number(i) = self.stack.pop().unwrap();
-            *memory.unwrap() = i;
-
-            debug!("Stack is now {:?}", self.stack.clone());
-            debug!("{segment} is now {:?}", self.memory.string_to_vec(segment));
 
             // A=D+A
             // D=A // D contains RAM + Offset
