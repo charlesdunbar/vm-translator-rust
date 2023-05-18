@@ -47,7 +47,8 @@ impl<'a> CodeWriter<'a> {
     pub fn write_label(&self) -> String {
         let label = self.parser.arg1().unwrap();
         let write_string = formatdoc! {
-            "({label})
+            "
+            ({label})
             "
         };
         write_string
