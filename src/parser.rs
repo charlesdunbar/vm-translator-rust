@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
             return;
         }
         match self.source_iterator.next() {
-            Some(line) => match line.split(' ').next() {
+            Some(line) => match line.split_whitespace().next() {
                 Some(command) => {
                     //TODO: Skip over blanks and comments.
                     match command.chars().next() {
@@ -87,7 +87,7 @@ impl<'a> Parser<'a> {
     ///
     /// If the current command is an arithmetic-logical command, returns C_ARITHMETIC
     pub fn command_type(&self) -> CommandType {
-        match self.current_command.split(' ').next() {
+        match self.current_command.split_whitespace().next() {
             None => {
                 panic!("Tried to get the command type of nothing!")
             }
@@ -114,13 +114,13 @@ impl<'a> Parser<'a> {
     ///
     /// Exits early if the current command is C_RETURN.
     pub fn arg1(&self) -> Option<&str> {
-        let mut ret_val = self.current_command.split(' ');
+        let mut ret_val = self.current_command.split_whitespace();
         if let CommandType::RETURN = self.command_type() {
             return None;
         } else if let CommandType::ARITHMETIC = self.command_type() {
             return ret_val.next();
         } else {
-            return self.current_command.split(' ').nth(1);
+            return self.current_command.split_whitespace().nth(1);
         }
     }
 
@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
             CommandType::PUSH | CommandType::POP | CommandType::FUNCTION | CommandType::CALL => {
                 return Some(
                     self.current_command
-                        .split(' ')
+                        .split_whitespace()
                         .nth(2)?
                         .parse::<i16>()
                         .unwrap(),
