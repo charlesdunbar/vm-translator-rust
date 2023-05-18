@@ -1,6 +1,6 @@
 #![allow(clippy::pedantic)]
 
-use crate::parser::Parser;
+use crate::parser::{CommandType, Parser};
 use std::collections::HashMap;
 
 use indoc::formatdoc;
@@ -220,17 +220,12 @@ impl<'a> CodeWriter<'a> {
     }
 
     pub fn write_push_pop(&mut self) -> String {
-        match self.parser.current_command.split(' ').next() {
+        match self.parser.command_type() {
             // TODO: move segment and index matching here, pass to push and pop
-            Some(command) => match command {
-                "push" => self.generate_push_string(),
-                "pop" => self.generate_pop_string(),
-                _ => {
-                    panic!("Error in matching what command to run in push_pop!")
-                }
-            },
-            None => {
-                panic!("Error in write_push_pop match!")
+            CommandType::PUSH => self.generate_push_string(),
+            CommandType::POP => self.generate_pop_string(),
+            _ => {
+                panic!("Error in matching what command to run in push_pop!")
             }
         }
     }
@@ -392,6 +387,11 @@ impl<'a> CodeWriter<'a> {
             debug!("Stack is now {:?}", self.stack.clone());
             debug!("{segment} is now {:?}", self.memory.string_to_vec(segment));
 
+            // A=D+A
+            // D=A // D contains RAM + Offset
+            // equals
+            //
+            //AD=D+A
             let common_string = formatdoc! {
                 "{comment_string}
                 @{}
