@@ -68,13 +68,13 @@ impl<'a> Parser<'a> {
                                 }
                             }
                         }
-                        None => {
-                            // Skip blank lines
-                            self.advance()
-                        }
+                        None => {}
                     }
                 }
-                None => return,
+                None => {
+                    // Skip blank lines
+                    self.advance()
+                }
             },
             None => {
                 self.current_command = String::from("");
@@ -89,7 +89,10 @@ impl<'a> Parser<'a> {
     pub fn command_type(&self) -> CommandType {
         match self.current_command.split_whitespace().next() {
             None => {
-                panic!("Tried to get the command type of nothing!")
+                panic!(
+                    "Tried to get the command type of nothing!, matching {:?}",
+                    self.current_command
+                )
             }
             Some(command) => match command {
                 "push" => CommandType::PUSH,

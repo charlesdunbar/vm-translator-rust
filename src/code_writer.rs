@@ -54,6 +54,32 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
+    pub fn write_goto(&self) -> String {
+        let label = self.parser.arg1().unwrap();
+        let write_string = formatdoc! {
+            "
+            @{label}
+            0;JMP
+
+            "
+        };
+        write_string
+    }
+
+    pub fn write_if(&self) -> String {
+        let label = self.parser.arg1().unwrap();
+        let write_string = formatdoc! {
+            "
+            // if-goto {label}
+            {}
+            @{label}
+            D;JNE
+
+            ", self.generate_pop_stack(true)
+        };
+        write_string
+    }
+
     pub fn write_arithmetic(&mut self) -> String {
         match self.parser.arg1() {
             Some(op) => match op {
@@ -109,7 +135,7 @@ impl<'a> CodeWriter<'a> {
         if store_d {
             return formatdoc! {"
             {}
-            D=M // Grab element-- from memory", write_string}
+            D=M // Grab element-- from memory", write_string};
         }
         write_string
     }
@@ -168,7 +194,7 @@ impl<'a> CodeWriter<'a> {
                     {common_string}", self.memory_lookup[ptr_segment]
                 };
 
-                return increment_stack_pointer(&write_string)
+                return increment_stack_pointer(&write_string);
             }
             let write_string = formatdoc!(
                 "{comment_string}
@@ -231,7 +257,7 @@ impl<'a> CodeWriter<'a> {
 
                     ", self.generate_pop_stack(true), self.memory_lookup[ptr_segment]
                 };
-                return common_string
+                return common_string;
             }
 
             // A=D+A
@@ -312,10 +338,10 @@ fn increment_stack_pointer(command: &String) -> String {
     let to_append = formatdoc!(
         "
     
-    @SP
-    M=M+1
+        @SP
+        M=M+1
 
-    "
+        "
     );
     formatdoc!("{}{}", command, to_append)
 }
