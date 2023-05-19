@@ -42,6 +42,9 @@ fn main() {
             parser::CommandType::IF => out_file
                 .write(c.write_if().as_bytes())
                 .expect("Error writing to file"),
+            parser::CommandType::FUNCTION => out_file
+                .write(c.write_function().as_bytes())
+                .expect("Error writing to file"),
             _ => out_file
                 .write(String::from("Need to Implement").as_bytes())
                 .expect("Error writing to file"),

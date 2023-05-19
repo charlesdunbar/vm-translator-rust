@@ -58,6 +58,7 @@ impl<'a> CodeWriter<'a> {
         let label = self.parser.arg1().unwrap();
         let write_string = formatdoc! {
             "
+            // goto {label}
             @{label}
             0;JMP
 
@@ -77,6 +78,32 @@ impl<'a> CodeWriter<'a> {
 
             ", self.generate_pop_stack(true)
         };
+        write_string
+    }
+
+    pub fn write_function(&self) -> String {
+        let function_name = self.parser.arg1().unwrap();
+        let n_vars = self.parser.clone().arg2().unwrap();
+        let mut write_string = formatdoc! {
+            "
+            // function {function_name} {n_vars}
+            ({function_name})
+            "
+        };
+        for _ in 0..n_vars {
+            write_string.push_str(
+                formatdoc! {"
+            @SP
+            A=M
+            @0
+            M=D
+            @SP
+            M=M+1
+            "}
+                .as_str(),
+            );
+        }
+        write_string.push_str("\n");
         write_string
     }
 
@@ -107,7 +134,7 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
-    pub fn write_push_pop(&mut self) -> String {
+    pub fn write_push_pop(&self) -> String {
         match self.parser.command_type() {
             // TODO: move segment and index matching here, pass to push and pop
             CommandType::PUSH => self.generate_push_string(),
@@ -140,7 +167,7 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    fn generate_push_string(&mut self) -> String {
+    fn generate_push_string(&self) -> String {
         let segment = self.parser.arg1().unwrap();
         let index = self.parser.clone().arg2().unwrap();
         let comment_string = format!("// push {segment} {index}");
@@ -210,7 +237,7 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
-    fn generate_pop_string(&mut self) -> String {
+    fn generate_pop_string(&self) -> String {
         let segment = self.parser.arg1().unwrap();
         let index = self.parser.clone().arg2().unwrap();
 
