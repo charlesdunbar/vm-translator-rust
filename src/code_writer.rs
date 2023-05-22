@@ -93,9 +93,10 @@ impl<'a> CodeWriter<'a> {
         for _ in 0..n_vars {
             write_string.push_str(
                 formatdoc! {"
+            @0
+            D=A
             @SP
             A=M
-            @0
             M=D
             @SP
             M=M+1
@@ -105,6 +106,84 @@ impl<'a> CodeWriter<'a> {
         }
         write_string.push_str("\n");
         write_string
+    }
+
+    pub fn write_call(&self) -> String {
+        return String::from("Implement")
+    }
+
+    pub fn write_return(&self) -> String {
+        let write_string = formatdoc! {
+            "// return
+            // Store LCL in R13 (call it frame)
+            @LCL
+            D=M
+            @R13
+            M=D
+            // Store retAddress *(frame-5) in R14
+            @5
+            D=D-A
+            @R14
+            AM=D
+            D=M
+            @R14
+            M=D
+            // Pop the return value for caller
+            {}
+            @ARG
+            A=M
+            M=D
+            // Restore caller's SP (ARG+1)
+            @ARG
+            D=M
+            D=D+1
+            @SP
+            M=D
+            // Restore THAT for caller *(frame-1)
+            @R13
+            D=M
+            A=M-1
+            D=M
+            @THAT
+            M=D
+            // Restore THIS for caller *(frame-2)
+            @2
+            D=A
+            @R13
+            D=M-D
+            A=D
+            D=M
+            @THIS
+            M=D
+            // Restore ARG for caller *(frame-3)
+            @3
+            D=A
+            @R13
+            D=M-D
+            A=D
+            D=M
+            @ARG
+            M=D
+            // Restore LCL for caller *(frame-4)
+            @4
+            D=A
+            @R13
+            D=M-D
+            A=D
+            D=M
+            @LCL
+            M=D
+            // goto return address
+            @R14
+            D=M
+            @9
+            0;JMP
+
+            ", self.generate_pop_stack(true)
+        };
+
+        write_string
+
     }
 
     pub fn write_arithmetic(&mut self) -> String {
@@ -291,7 +370,7 @@ impl<'a> CodeWriter<'a> {
             // D=A // D contains RAM + Offset
             // equals
             //
-            //AD=D+A
+            // AD=D+A
             let common_string = formatdoc! {
                 "{comment_string}
                 @{}
