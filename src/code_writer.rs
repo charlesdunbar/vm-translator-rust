@@ -14,6 +14,8 @@ pub struct CodeWriter<'a> {
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
+    return_stack: Vec<String>,
+    call_counter: i16,
 }
 
 impl<'a> CodeWriter<'a> {
@@ -41,6 +43,8 @@ impl<'a> CodeWriter<'a> {
                 (String::from("temp"), String::from("TEMP")),
             ]),
             jmp_counter: 0,
+            call_counter: 0,
+            return_stack: Vec::new(),
         }
     }
 
@@ -108,12 +112,78 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    pub fn write_call(&self) -> String {
-        return String::from("Implement")
+    pub fn write_call(&mut self) -> String {
+        let function_name = self.parser.arg1().unwrap();
+        let n_args = self.parser.clone().arg2().unwrap();
+        let write_string = formatdoc! {
+            "// call {}.{function_name}$ret.{}
+            // Generate return address label and push to stack
+            @{}.{function_name}$ret.{}
+            D=A
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
+            // Push LCL
+            @LCL
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
+            // Push ARG
+            @ARG
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
+            // Push THIS
+            @THIS
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
+            // Push THAT
+            @THAT
+            D=M
+            @SP
+            A=M
+            M=D
+            @SP
+            M=M+1
+            // ARG = SP-5-nArgs
+            @5
+            D=A
+            @SP
+            D=M-D
+            @{n_args}
+            D=D-A
+            @ARG
+            M=D
+            // LCL = SP
+            @SP
+            D=M
+            @LCL
+            M=D
+            // goto {}.{function_name}
+            @{}.{function_name}
+            0;JMP
+            ({}.{function_name}$ret.{})
+
+            ", self.filename, self.call_counter, self.filename, self.call_counter, self.filename, self.filename, self.filename, self.call_counter,
+        };
+        self.call_counter += 1;
+        write_string
     }
 
-    pub fn write_return(&self) -> String {
-        let write_string = formatdoc! {
+    pub fn write_return(&mut self) -> String {
+        let mut write_string = formatdoc! {
             "// return
             // Store LCL in R13 (call it frame)
             @LCL
@@ -173,14 +243,19 @@ impl<'a> CodeWriter<'a> {
             D=M
             @LCL
             M=D
-            // goto return address
-            @R14
-            D=M
-            @9
-            0;JMP
-
             ", self.generate_pop_stack(true)
         };
+
+        if !self.return_stack.is_empty() {
+            write_string.push_str(formatdoc! {
+                "// goto return address
+                @{}$ret.{}
+                0;JMP
+                ", self.return_stack.pop().unwrap(), self.call_counter
+            }.as_str())
+        } else {
+            write_string.push_str("\n")
+        }
 
         write_string
 

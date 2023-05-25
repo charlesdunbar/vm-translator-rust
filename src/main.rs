@@ -24,6 +24,19 @@ fn main() {
     let mut out_file =
         File::create(format!("{}.asm", &filename)).expect("Unable to create new file");
 
+    // Set up bootstrap code
+    let bootstrap_code = formatdoc! {
+        "@256
+        D=A
+        @SP
+        M=D
+        //todo call Sys.init
+        "
+    };
+    out_file
+        .write(bootstrap_code.as_bytes())
+        .expect("Error writing to file");
+
     while c.parser.has_more_lines() {
         c.parser.advance();
         match c.parser.command_type() {
@@ -48,8 +61,8 @@ fn main() {
             parser::CommandType::RETURN => out_file
                 .write(c.write_return().as_bytes())
                 .expect("Error writing to file"),
-            _ => out_file
-                .write(String::from("Need to Implement").as_bytes())
+            parser::CommandType::CALL => out_file
+                .write(c.write_call().as_bytes())
                 .expect("Error writing to file"),
         };
     }
