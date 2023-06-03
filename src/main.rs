@@ -30,8 +30,8 @@ fn main() {
         D=A
         @SP
         M=D
-        //todo call Sys.init
-        "
+        {}
+        ", c.write_call(Some("init"), Some(0))
     };
     out_file
         .write(bootstrap_code.as_bytes())
@@ -62,7 +62,7 @@ fn main() {
                 .write(c.write_return().as_bytes())
                 .expect("Error writing to file"),
             parser::CommandType::CALL => out_file
-                .write(c.write_call().as_bytes())
+                .write(c.write_call(None, None).as_bytes())
                 .expect("Error writing to file"),
         };
     }

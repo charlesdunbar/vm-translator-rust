@@ -2,6 +2,9 @@
 
 use crate::parser::{CommandType, Parser};
 use std::collections::HashMap;
+use std::collections::VecDeque;
+
+use log::info;
 
 use indoc::formatdoc;
 
@@ -14,8 +17,9 @@ pub struct CodeWriter<'a> {
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
-    return_stack: Vec<String>,
+    return_stack: VecDeque<String>,
     call_counter: i16,
+    current_function: String,
 }
 
 impl<'a> CodeWriter<'a> {
@@ -43,8 +47,9 @@ impl<'a> CodeWriter<'a> {
                 (String::from("temp"), String::from("TEMP")),
             ]),
             jmp_counter: 0,
-            call_counter: 0,
-            return_stack: Vec::new(),
+            call_counter: -1,
+            return_stack: VecDeque::new(),
+            current_function: String::from("bootstrap"),
         }
     }
 
@@ -85,7 +90,7 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    pub fn write_function(&self) -> String {
+    pub fn write_function(&mut self) -> String {
         let function_name = self.parser.arg1().unwrap();
         let n_vars = self.parser.clone().arg2().unwrap();
         let mut write_string = formatdoc! {
@@ -108,13 +113,17 @@ impl<'a> CodeWriter<'a> {
                 .as_str(),
             );
         }
+        self.current_function =
+            String::from(self.parser.arg1().unwrap().split('.').nth(1).unwrap());
         write_string.push_str("\n");
         write_string
     }
 
-    pub fn write_call(&mut self) -> String {
-        let function_name = self.parser.arg1().unwrap();
-        let n_args = self.parser.clone().arg2().unwrap();
+    pub fn write_call(&mut self, func_name: Option<&str>, n_args: Option<i16>) -> String {
+        let function_name =
+            func_name.unwrap_or_else(|| self.parser.arg1().unwrap().split('.').nth(1).unwrap());
+        let n_args = n_args.unwrap_or_else(|| self.parser.clone().arg2().unwrap());
+        self.call_counter += 1;
         let write_string = formatdoc! {
             "// call {}.{function_name}$ret.{}
             // Generate return address label and push to stack
@@ -171,14 +180,28 @@ impl<'a> CodeWriter<'a> {
             D=M
             @LCL
             M=D
-            // goto {}.{function_name}
+            // goto {}.{function_name}  
             @{}.{function_name}
             0;JMP
-            ({}.{function_name}$ret.{})
-
-            ", self.filename, self.call_counter, self.filename, self.call_counter, self.filename, self.filename, self.filename, self.call_counter,
+            ({}.{}$ret.{})
+            ", self.filename, self.call_counter, self.filename, self.call_counter, self.filename, self.filename, self.filename, self.current_function, self.call_counter,
         };
-        self.call_counter += 1;
+
+        // Skip first push, we never return to bootstrap function.
+        if self.call_counter != 0 {
+            self.return_stack.push_back(String::from(format!(
+                "{}.{}$ret.{}",
+                self.filename, self.current_function, self.call_counter
+            )));
+        }
+        info!(
+            "after call statement, call_counter is now : {:?}",
+            self.call_counter
+        );
+        info!(
+            "after call statement, return_stack is now: {:?}",
+            self.return_stack
+        );
         write_string
     }
 
@@ -247,18 +270,29 @@ impl<'a> CodeWriter<'a> {
         };
 
         if !self.return_stack.is_empty() {
-            write_string.push_str(formatdoc! {
-                "// goto return address
-                @{}$ret.{}
+            write_string.push_str(
+                formatdoc! {
+                    "// goto return address
+                @{}
                 0;JMP
-                ", self.return_stack.pop().unwrap(), self.call_counter
-            }.as_str())
+                
+                ", self.return_stack.pop_front().unwrap()
+                }
+                .as_str(),
+            );
+            info!(
+                "After return statment, return_stack is now: {:?}",
+                self.return_stack
+            );
+            info!(
+                "After return statment, call_counter is now: {:?}",
+                self.call_counter
+            );
         } else {
             write_string.push_str("\n")
         }
 
         write_string
-
     }
 
     pub fn write_arithmetic(&mut self) -> String {
