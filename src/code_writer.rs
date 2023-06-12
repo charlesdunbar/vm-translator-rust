@@ -20,10 +20,11 @@ pub struct CodeWriter<'a> {
     return_stack: VecDeque<String>,
     call_counter: i16,
     current_function: String,
+    bootstrap: bool,
 }
 
 impl<'a> CodeWriter<'a> {
-    pub fn new(p: Parser<'a>, filename: &'a str) -> Self {
+    pub fn new(p: Parser<'a>, filename: &'a str, bootstrap: bool) -> Self {
         CodeWriter {
             filename,
             parser: p,
@@ -50,6 +51,7 @@ impl<'a> CodeWriter<'a> {
             call_counter: -1,
             return_stack: VecDeque::new(),
             current_function: String::from("bootstrap"),
+            bootstrap,
         }
     }
 
@@ -188,11 +190,14 @@ impl<'a> CodeWriter<'a> {
         };
 
         // Skip first push, we never return to bootstrap function.
-        if self.call_counter != 0 {
+        if !self.bootstrap {
             self.return_stack.push_back(String::from(format!(
                 "{}.{}$ret.{}",
                 self.filename, self.current_function, self.call_counter
             )));
+        } else {
+            // Swap boolean to indicate we've sipped the first push
+            self.bootstrap = false;
         }
         info!(
             "after call statement, call_counter is now : {:?}",

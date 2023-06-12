@@ -25,7 +25,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a String) -> Self {
         Parser {
             current_line: 0,
             source_iterator: input.lines(),
