@@ -93,9 +93,9 @@ impl<'a> CodeWriter<'a> {
     pub fn write_function(&mut self, function_name: &str, n_vars: i16) -> String {
         let mut write_string = formatdoc! {
             "
-            // function {}.{function_name} {n_vars}
-            ({}.{function_name})
-            ", self.filename, self.filename
+            // function {function_name} {n_vars}
+            ({function_name})
+            "
         };
         for _ in 0..n_vars {
             write_string.push_str(
@@ -121,9 +121,9 @@ impl<'a> CodeWriter<'a> {
         self.call_counter += 1;
         let write_string = formatdoc! {
             // TODO - Call other functions to improve this
-            "// call {}.{function_name}$ret.{}
+            "// call {function_name}
             // Generate return address label and push to stack
-            @{}.{function_name}$ret.{}
+            @{function_name}$ret.{}
             D=A
             @SP
             A=M
@@ -176,11 +176,12 @@ impl<'a> CodeWriter<'a> {
             D=M
             @LCL
             M=D
-            // goto {}.{function_name}  
-            @{}.{function_name}
+            // goto {function_name}
+            @{function_name}
             0;JMP
             ({}.{}$ret.{})
-            ", self.filename, self.call_counter, self.filename, self.call_counter, self.filename, self.filename, self.filename, self.current_function, self.call_counter,
+            
+            ", self.call_counter, self.filename, self.current_function, self.call_counter,
         };
 
         // Skip first push, we never return to bootstrap function.
