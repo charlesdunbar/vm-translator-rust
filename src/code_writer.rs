@@ -1,6 +1,6 @@
 #![allow(clippy::pedantic)]
 
-use crate::parser::{CommandType, Parser};
+use crate::parser::CommandType;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
@@ -13,7 +13,6 @@ const FALSE: i16 = 0;
 
 pub struct CodeWriter<'a> {
     filename: &'a str,
-    // TODO - Pull parser out.
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
@@ -55,10 +54,13 @@ impl<'a> CodeWriter<'a> {
     }
 
     pub fn write_label(&self, label: &str) -> String {
+        // TODO - Handle multiple files and knowing if inside a function when called.
+        // Track current function in code_writer
         let write_string = formatdoc! {
             "
-            ({label})
-            "
+            // label {label}
+            ({}.{}${label})
+            ", self.filename, self.current_function
         };
         write_string
     }
@@ -66,11 +68,11 @@ impl<'a> CodeWriter<'a> {
     pub fn write_goto(&self, label: &str) -> String {
         let write_string = formatdoc! {
             "
-            // goto {label}
-            @{label}
+            // goto {}.{}${label}
+            @{}.{}${label}
             0;JMP
 
-            "
+            ", self.filename, self.current_function, self.filename, self.current_function
         };
         write_string
     }
@@ -91,9 +93,9 @@ impl<'a> CodeWriter<'a> {
     pub fn write_function(&mut self, function_name: &str, n_vars: i16) -> String {
         let mut write_string = formatdoc! {
             "
-            // function {function_name} {n_vars}
-            ({function_name})
-            "
+            // function {}.{function_name} {n_vars}
+            ({}.{function_name})
+            ", self.filename, self.filename
         };
         for _ in 0..n_vars {
             write_string.push_str(
@@ -109,8 +111,7 @@ impl<'a> CodeWriter<'a> {
                 .as_str(),
             );
         }
-        self.current_function =
-            String::from(function_name.split('.').nth(1).unwrap());
+        self.current_function = String::from(function_name.split('.').nth(1).unwrap());
         write_string.push_str("\n");
         write_string
     }
@@ -119,6 +120,7 @@ impl<'a> CodeWriter<'a> {
         info!("function_name in call is {:?}", function_name);
         self.call_counter += 1;
         let write_string = formatdoc! {
+            // TODO - Call other functions to improve this
             "// call {}.{function_name}$ret.{}
             // Generate return address label and push to stack
             @{}.{function_name}$ret.{}
@@ -203,6 +205,7 @@ impl<'a> CodeWriter<'a> {
     }
 
     pub fn write_return(&mut self) -> String {
+        // TODO: Call other functions to improve this.
         let mut write_string = formatdoc! {
             "// return
             // Store LCL in R13 (call it frame)
@@ -294,25 +297,16 @@ impl<'a> CodeWriter<'a> {
 
     pub fn write_arithmetic(&mut self, op: &str) -> String {
         match op {
-                "add" | "sub" | "and" | "or" => {
-                    self.generate_math_string(String::from(op), false, None)
-                }
-                "neg" | "not" => self.generate_math_string(String::from(op), true, None),
-                "eq" => {
-                    self.generate_math_string(String::from("eq"), false, Some(String::from("JEQ")))
-                }
-                "gt" => {
-                    self.generate_math_string(String::from("gt"), false, Some(String::from("JGT")))
-                }
-                "lt" => {
-                    self.generate_math_string(String::from("lt"), false, Some(String::from("JLT")))
-                }
-                _ => {
-                    panic!(
-                        "Tried to do math on a not math ({:?}) thing!",
-                        op
-                    )
-                }
+            "add" | "sub" | "and" | "or" => {
+                self.generate_math_string(String::from(op), false, None)
+            }
+            "neg" | "not" => self.generate_math_string(String::from(op), true, None),
+            "eq" => self.generate_math_string(String::from("eq"), false, Some(String::from("JEQ"))),
+            "gt" => self.generate_math_string(String::from("gt"), false, Some(String::from("JGT"))),
+            "lt" => self.generate_math_string(String::from("lt"), false, Some(String::from("JLT"))),
+            _ => {
+                panic!("Tried to do math on a not math ({:?}) thing!", op)
+            }
         }
     }
 
