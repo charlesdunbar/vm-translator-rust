@@ -13,7 +13,7 @@ const FALSE: i16 = 0;
 
 pub struct CodeWriter<'a> {
     filename: &'a str,
-    pub parser: Parser<'a>,
+    // TODO - Pull parser out.
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
@@ -24,10 +24,9 @@ pub struct CodeWriter<'a> {
 }
 
 impl<'a> CodeWriter<'a> {
-    pub fn new(p: Parser<'a>, filename: &'a str, bootstrap: bool) -> Self {
+    pub fn new(filename: &'a str, bootstrap: bool) -> Self {
         CodeWriter {
             filename,
-            parser: p,
             op_lookup: HashMap::from([
                 (String::from("add"), String::from("+")),
                 (String::from("sub"), String::from("-")),
@@ -55,8 +54,7 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
-    pub fn write_label(&self) -> String {
-        let label = self.parser.arg1().unwrap();
+    pub fn write_label(&self, label: &str) -> String {
         let write_string = formatdoc! {
             "
             ({label})
@@ -65,8 +63,7 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    pub fn write_goto(&self) -> String {
-        let label = self.parser.arg1().unwrap();
+    pub fn write_goto(&self, label: &str) -> String {
         let write_string = formatdoc! {
             "
             // goto {label}
@@ -78,8 +75,7 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    pub fn write_if(&self) -> String {
-        let label = self.parser.arg1().unwrap();
+    pub fn write_if(&self, label: &str) -> String {
         let write_string = formatdoc! {
             "
             // if-goto {label}
@@ -92,9 +88,7 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    pub fn write_function(&mut self) -> String {
-        let function_name = self.parser.arg1().unwrap();
-        let n_vars = self.parser.clone().arg2().unwrap();
+    pub fn write_function(&mut self, function_name: &str, n_vars: i16) -> String {
         let mut write_string = formatdoc! {
             "
             // function {function_name} {n_vars}
@@ -116,15 +110,13 @@ impl<'a> CodeWriter<'a> {
             );
         }
         self.current_function =
-            String::from(self.parser.arg1().unwrap().split('.').nth(1).unwrap());
+            String::from(function_name.split('.').nth(1).unwrap());
         write_string.push_str("\n");
         write_string
     }
 
-    pub fn write_call(&mut self, func_name: Option<&str>, n_args: Option<i16>) -> String {
-        let function_name =
-            func_name.unwrap_or_else(|| self.parser.arg1().unwrap().split('.').nth(1).unwrap());
-        let n_args = n_args.unwrap_or_else(|| self.parser.clone().arg2().unwrap());
+    pub fn write_call(&mut self, function_name: &str, n_args: i16) -> String {
+        info!("function_name in call is {:?}", function_name);
         self.call_counter += 1;
         let write_string = formatdoc! {
             "// call {}.{function_name}$ret.{}
@@ -300,9 +292,8 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    pub fn write_arithmetic(&mut self) -> String {
-        match self.parser.arg1() {
-            Some(op) => match op {
+    pub fn write_arithmetic(&mut self, op: &str) -> String {
+        match op {
                 "add" | "sub" | "and" | "or" => {
                     self.generate_math_string(String::from(op), false, None)
                 }
@@ -319,19 +310,17 @@ impl<'a> CodeWriter<'a> {
                 _ => {
                     panic!(
                         "Tried to do math on a not math ({:?}) thing!",
-                        self.parser.arg1()
+                        op
                     )
                 }
-            },
-            None => panic!("Error matching write_argument operation!"),
         }
     }
 
-    pub fn write_push_pop(&self) -> String {
-        match self.parser.command_type() {
+    pub fn write_push_pop(&self, command_type: CommandType, segment: &str, index: i16) -> String {
+        match command_type {
             // TODO: move segment and index matching here, pass to push and pop
-            CommandType::PUSH => self.generate_push_string(),
-            CommandType::POP => self.generate_pop_string(),
+            CommandType::PUSH => self.generate_push_string(segment, index),
+            CommandType::POP => self.generate_pop_string(segment, index),
             _ => {
                 panic!("Error in matching what command to run in push_pop!")
             }
@@ -360,9 +349,7 @@ impl<'a> CodeWriter<'a> {
         write_string
     }
 
-    fn generate_push_string(&self) -> String {
-        let segment = self.parser.arg1().unwrap();
-        let index = self.parser.clone().arg2().unwrap();
+    fn generate_push_string(&self, segment: &str, index: i16) -> String {
         let comment_string = format!("// push {segment} {index}");
         let common_string = formatdoc!(
             "@SP
@@ -430,10 +417,7 @@ impl<'a> CodeWriter<'a> {
         }
     }
 
-    fn generate_pop_string(&self) -> String {
-        let segment = self.parser.arg1().unwrap();
-        let index = self.parser.clone().arg2().unwrap();
-
+    fn generate_pop_string(&self, segment: &str, index: i16) -> String {
         let comment_string = format!("// pop {segment} {index}");
 
         if segment == "constant" {
