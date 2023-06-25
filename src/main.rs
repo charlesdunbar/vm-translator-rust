@@ -109,19 +109,19 @@ fn main() {
                                 .expect("Error writing to file"),
                         };
                     }
-                    // Finish program with infinite loop
-                    let infinite_loop = formatdoc! {"
-                        (INFINITE_LOOP)
-                        @INFINITE_LOOP
-                        0;JMP            // infinite loop
-                    "};
-                    out_file
-                        .write(infinite_loop.as_bytes())
-                        .expect("Error writing to file");
                 }
                 Err(e) => println!("{:?}", e),
             } //let mut file = File::open(&args[1]).expect("File not found");
         }
+        // Finish program with infinite loop
+        let infinite_loop = formatdoc! {"
+        (INFINITE_LOOP)
+        @INFINITE_LOOP
+        0;JMP            // infinite loop
+    "};
+    out_file
+        .write(infinite_loop.as_bytes())
+        .expect("Error writing to file");
     } else {
         let mut file = File::open(&args[1]).expect("File not found");
         file.read_to_string(&mut file_contents)

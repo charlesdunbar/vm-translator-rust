@@ -3,7 +3,9 @@
 use crate::parser::CommandType;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::error;
 
+use log::debug;
 use log::info;
 
 use indoc::formatdoc;
@@ -82,10 +84,10 @@ impl<'a> CodeWriter<'a> {
             "
             // if-goto {label}
             {}
-            @{label}
+            @{}.{}${label}
             D;JNE
 
-            ", self.generate_pop_stack(true)
+            ", self.generate_pop_stack(true), self.filename, self.current_function
         };
         write_string
     }
@@ -121,7 +123,7 @@ impl<'a> CodeWriter<'a> {
         self.call_counter += 1;
         let write_string = formatdoc! {
             // TODO - Call other functions to improve this
-            "// call {function_name}
+            "// call {function_name} {n_args}
             // Generate return address label and push to stack
             @{function_name}$ret.{}
             D=A
@@ -191,7 +193,8 @@ impl<'a> CodeWriter<'a> {
                 self.filename, self.current_function, self.call_counter
             )));
         } else {
-            // Swap boolean to indicate we've sipped the first push
+            // Swap boolean to indicate we've skipped the first push
+            debug!("Bootstrap complete! Setting self.bootstrap to true");
             self.bootstrap = false;
         }
         info!(
@@ -290,6 +293,7 @@ impl<'a> CodeWriter<'a> {
                 self.call_counter
             );
         } else {
+            debug!("Return stack is empty! Trying to return from {:?}", self.current_function);
             write_string.push_str("\n")
         }
 
