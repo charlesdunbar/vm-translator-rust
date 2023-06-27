@@ -2,9 +2,7 @@
 
 use crate::parser::CommandType;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 
-use log::debug;
 use log::info;
 
 use indoc::formatdoc;
@@ -19,12 +17,10 @@ pub struct CodeWriter<'a> {
     jmp_counter: i16,
     call_counter: &'a mut i16,
     current_function: String,
-    return_stack: &'a mut VecDeque<String>,
-    bootstrap: bool,
 }
 
 impl<'a> CodeWriter<'a> {
-    pub fn new(filename: &'a str, bootstrap: bool, call_counter: &'a mut i16, return_stack: &'a mut VecDeque<String>) -> Self {
+    pub fn new(filename: &'a str, call_counter: &'a mut i16) -> Self {
         CodeWriter {
             filename,
             op_lookup: HashMap::from([
@@ -49,9 +45,6 @@ impl<'a> CodeWriter<'a> {
             jmp_counter: 0,
             call_counter,
             current_function: String::from("bootstrap"),
-            bootstrap,
-            return_stack,
-
         }
     }
 
@@ -185,32 +178,16 @@ impl<'a> CodeWriter<'a> {
             
             ", self.call_counter, self.call_counter,
         };
-
-        // Skip first push, we never return to bootstrap function.
-        if !self.bootstrap {
-            self.return_stack.push_back(String::from(format!(
-                "{}.{}$ret.{}",
-                self.filename, self.current_function, self.call_counter
-            )));
-        } else {
-            // Swap boolean to indicate we've skipped the first push
-            debug!("Bootstrap complete! Setting self.bootstrap to true");
-            self.bootstrap = false;
-        }
         info!(
             "after call statement, call_counter is now : {:?}",
             self.call_counter
-        );
-        info!(
-            "after call statement, return_stack is now: {:?}",
-            self.return_stack
         );
         write_string
     }
 
     pub fn write_return(&mut self) -> String {
         // TODO: Call other functions to improve this.
-        let mut write_string = formatdoc! {
+        let write_string = formatdoc! {
             "// return
             // Store LCL in frame
             @LCL
@@ -270,44 +247,13 @@ impl<'a> CodeWriter<'a> {
             D=M
             @LCL
             M=D
-            ", self.generate_pop_stack(true)
-        };
-
-        // if !self.return_stack.is_empty() {
-        //     write_string.push_str(
-        //         formatdoc! {
-        //             "// goto return address
-        //         @{}
-        //         0;JMP
-                
-        //         ", self.return_stack.pop_front().unwrap()
-        //         }
-        //         .as_str(),
-        //     );
-        //     info!(
-        //         "After return statment, return_stack is now: {:?}",
-        //         self.return_stack
-        //     );
-        //     info!(
-        //         "After return statment, call_counter is now: {:?}",
-        //         self.call_counter
-        //     );
-        // } else {
-        //     debug!("Return stack is empty! Trying to return from {:?}", self.current_function);
-        //     write_string.push_str("\n")
-        // }
-
-        write_string.push_str(
-            formatdoc! {
-                "// goto return address
+            // goto return address
             @RET
             A=M
             0;JMP
             
-            ",
-            }
-            .as_str()
-        );
+            ", self.generate_pop_stack(true)
+        };
 
         write_string
     }

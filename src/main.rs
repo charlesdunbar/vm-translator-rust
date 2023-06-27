@@ -7,8 +7,6 @@ use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::collections::VecDeque;
-
 
 use code_writer::CodeWriter;
 use glob::glob;
@@ -22,7 +20,6 @@ fn main() {
     let f_or_d = PathBuf::from(&args[1]);
     let mut out_file: File;
     let filename: &str;
-    let mut return_stack: VecDeque<String> = VecDeque::new();
     let mut call_counter: i16 = -1;
     if f_or_d.is_dir() {
         // Need to find which file contains 'function Sys.init' and parse that first, then all others.
@@ -30,8 +27,7 @@ fn main() {
         println!("Going to print to {}.asm", &args[1]);
         out_file = File::create(format!("{}/{}.asm", &args[1], filename))
             .expect("Unable to create new file");
-        let mut c: CodeWriter = CodeWriter::new("Sys", true, &mut call_counter, &mut return_stack); // Boostrap code calls the Sys init function
-                                                              // Set up bootstrap code
+        let mut c: CodeWriter = CodeWriter::new("Sys", &mut call_counter); // Boostrap code calls the Sys init function
         let bootstrap_code = formatdoc! {
             "@256
         D=A
@@ -50,13 +46,12 @@ fn main() {
         {
             match files {
                 Ok(path) => {
-                    println!("Parsing {}", path.display());
                     let mut file_contents = String::new();
                     let mut file = File::open(path.clone()).expect("Error opening file");
                     file.read_to_string(&mut file_contents)
                         .expect("Could not read file");
-                    let mut p = Parser::new(&file_contents);
-                    let mut c = CodeWriter::new(
+                    let p = Parser::new(&file_contents);
+                    let c = CodeWriter::new(
                         path.file_name()
                             .unwrap()
                             .to_str()
@@ -64,61 +59,13 @@ fn main() {
                             .split('.')
                             .nth(0)
                             .unwrap(),
-                        false,
                         &mut call_counter,
-                        &mut return_stack,
                     );
 
-                    println!(
-                        "{:?} has more lines: {:?}",
-                        &file_contents,
-                        p.has_more_lines()
-                    );
-                    while p.has_more_lines() {
-                        p.advance();
-                        match p.command_type() {
-                            parser::CommandType::ARITHMETIC => out_file
-                                .write(c.write_arithmetic(p.arg1().unwrap()).as_bytes())
-                                .expect("Error writing to file"),
-                            parser::CommandType::PUSH | parser::CommandType::POP => out_file
-                                .write(
-                                    c.write_push_pop(
-                                        p.command_type(),
-                                        p.arg1().unwrap(),
-                                        p.clone().arg2().unwrap(),
-                                    )
-                                    .as_bytes(),
-                                )
-                                .expect("Error writing to file"),
-                            parser::CommandType::LABEL => out_file
-                                .write(c.write_label(p.arg1().unwrap()).as_bytes())
-                                .expect("Error writing to file"),
-                            parser::CommandType::GOTO => out_file
-                                .write(c.write_goto(p.arg1().unwrap()).as_bytes())
-                                .expect("Error writing to file"),
-                            parser::CommandType::IF => out_file
-                                .write(c.write_if(p.arg1().unwrap()).as_bytes())
-                                .expect("Error writing to file"),
-                            parser::CommandType::FUNCTION => out_file
-                                .write(
-                                    c.write_function(p.arg1().unwrap(), p.clone().arg2().unwrap())
-                                        .as_bytes(),
-                                )
-                                .expect("Error writing to file"),
-                            parser::CommandType::RETURN => out_file
-                                .write(c.write_return().as_bytes())
-                                .expect("Error writing to file"),
-                            parser::CommandType::CALL => out_file
-                                .write(
-                                    c.write_call(p.arg1().unwrap(), p.clone().arg2().unwrap())
-                                        .as_bytes(),
-                                )
-                                .expect("Error writing to file"),
-                        };
-                    }
+                    out_file = parse_file(p, c, out_file);
                 }
                 Err(e) => println!("{:?}", e),
-            } //let mut file = File::open(&args[1]).expect("File not found");
+            }
         }
         // Finish program with infinite loop
         let infinite_loop = formatdoc! {"
@@ -126,17 +73,17 @@ fn main() {
         @INFINITE_LOOP
         0;JMP            // infinite loop
     "};
-    out_file
-        .write(infinite_loop.as_bytes())
-        .expect("Error writing to file");
+        out_file
+            .write(infinite_loop.as_bytes())
+            .expect("Error writing to file");
     } else {
         let mut file = File::open(&args[1]).expect("File not found");
         file.read_to_string(&mut file_contents)
             .expect("Could not read file");
-        let mut p = Parser::new(&file_contents);
+        let p = Parser::new(&file_contents);
         let file_str = format!("{}", &args[1].split('.').nth(0).unwrap());
         filename = file_str.as_str();
-        let mut c: CodeWriter = CodeWriter::new(&filename, true, &mut call_counter, &mut return_stack);
+        let mut c: CodeWriter = CodeWriter::new(&filename, &mut call_counter);
         out_file = File::create(format!("{}.asm", &filename)).expect("Unable to create new file");
 
         // Set up bootstrap code
@@ -152,48 +99,7 @@ fn main() {
             .write(bootstrap_code.as_bytes())
             .expect("Error writing to file");
 
-        while p.has_more_lines() {
-            p.advance();
-            match p.command_type() {
-                parser::CommandType::ARITHMETIC => out_file
-                    .write(c.write_arithmetic(p.arg1().unwrap()).as_bytes())
-                    .expect("Error writing to file"),
-                parser::CommandType::PUSH | parser::CommandType::POP => out_file
-                    .write(
-                        c.write_push_pop(
-                            p.command_type(),
-                            p.arg1().unwrap(),
-                            p.clone().arg2().unwrap(),
-                        )
-                        .as_bytes(),
-                    )
-                    .expect("Error writing to file"),
-                parser::CommandType::LABEL => out_file
-                    .write(c.write_label(p.arg1().unwrap()).as_bytes())
-                    .expect("Error writing to file"),
-                parser::CommandType::GOTO => out_file
-                    .write(c.write_goto(p.arg1().unwrap()).as_bytes())
-                    .expect("Error writing to file"),
-                parser::CommandType::IF => out_file
-                    .write(c.write_if(p.arg1().unwrap()).as_bytes())
-                    .expect("Error writing to file"),
-                parser::CommandType::FUNCTION => out_file
-                    .write(
-                        c.write_function(p.arg1().unwrap(), p.clone().arg2().unwrap())
-                            .as_bytes(),
-                    )
-                    .expect("Error writing to file"),
-                parser::CommandType::RETURN => out_file
-                    .write(c.write_return().as_bytes())
-                    .expect("Error writing to file"),
-                parser::CommandType::CALL => out_file
-                    .write(
-                        c.write_call(p.arg1().unwrap(), p.clone().arg2().unwrap())
-                            .as_bytes(),
-                    )
-                    .expect("Error writing to file"),
-            };
-        }
+        out_file = parse_file(p, c, out_file);
         // Finish program with infinite loop
         let infinite_loop = formatdoc! {"
         (INFINITE_LOOP)
@@ -204,4 +110,50 @@ fn main() {
             .write(infinite_loop.as_bytes())
             .expect("Error writing to file");
     }
+}
+
+fn parse_file(mut p: Parser<'_>, mut c: CodeWriter<'_>, mut out_file: File) -> File {
+    while p.has_more_lines() {
+        p.advance();
+        match p.command_type() {
+            parser::CommandType::ARITHMETIC => out_file
+                .write(c.write_arithmetic(p.arg1().unwrap()).as_bytes())
+                .expect("Error writing to file"),
+            parser::CommandType::PUSH | parser::CommandType::POP => out_file
+                .write(
+                    c.write_push_pop(
+                        p.command_type(),
+                        p.arg1().unwrap(),
+                        p.clone().arg2().unwrap(),
+                    )
+                    .as_bytes(),
+                )
+                .expect("Error writing to file"),
+            parser::CommandType::LABEL => out_file
+                .write(c.write_label(p.arg1().unwrap()).as_bytes())
+                .expect("Error writing to file"),
+            parser::CommandType::GOTO => out_file
+                .write(c.write_goto(p.arg1().unwrap()).as_bytes())
+                .expect("Error writing to file"),
+            parser::CommandType::IF => out_file
+                .write(c.write_if(p.arg1().unwrap()).as_bytes())
+                .expect("Error writing to file"),
+            parser::CommandType::FUNCTION => out_file
+                .write(
+                    c.write_function(p.arg1().unwrap(), p.clone().arg2().unwrap())
+                        .as_bytes(),
+                )
+                .expect("Error writing to file"),
+            parser::CommandType::RETURN => out_file
+                .write(c.write_return().as_bytes())
+                .expect("Error writing to file"),
+            parser::CommandType::CALL => out_file
+                .write(
+                    c.write_call(p.arg1().unwrap(), p.clone().arg2().unwrap())
+                        .as_bytes(),
+                )
+                .expect("Error writing to file"),
+        };
+    }
+    out_file
 }
