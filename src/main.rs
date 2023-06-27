@@ -7,6 +7,8 @@ use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::collections::VecDeque;
+
 
 use code_writer::CodeWriter;
 use glob::glob;
@@ -20,12 +22,15 @@ fn main() {
     let f_or_d = PathBuf::from(&args[1]);
     let mut out_file: File;
     let filename: &str;
+    let mut return_stack: VecDeque<String> = VecDeque::new();
+    let mut call_counter: i16 = -1;
     if f_or_d.is_dir() {
+        // Need to find which file contains 'function Sys.init' and parse that first, then all others.
         filename = &args[1];
         println!("Going to print to {}.asm", &args[1]);
         out_file = File::create(format!("{}/{}.asm", &args[1], filename))
             .expect("Unable to create new file");
-        let mut c: CodeWriter = CodeWriter::new("Sys", true); // Boostrap code calls the Sys init function
+        let mut c: CodeWriter = CodeWriter::new("Sys", true, &mut call_counter, &mut return_stack); // Boostrap code calls the Sys init function
                                                               // Set up bootstrap code
         let bootstrap_code = formatdoc! {
             "@256
@@ -60,6 +65,8 @@ fn main() {
                             .nth(0)
                             .unwrap(),
                         false,
+                        &mut call_counter,
+                        &mut return_stack,
                     );
 
                     println!(
@@ -129,7 +136,7 @@ fn main() {
         let mut p = Parser::new(&file_contents);
         let file_str = format!("{}", &args[1].split('.').nth(0).unwrap());
         filename = file_str.as_str();
-        let mut c: CodeWriter = CodeWriter::new(&filename, true);
+        let mut c: CodeWriter = CodeWriter::new(&filename, true, &mut call_counter, &mut return_stack);
         out_file = File::create(format!("{}.asm", &filename)).expect("Unable to create new file");
 
         // Set up bootstrap code

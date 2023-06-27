@@ -3,7 +3,6 @@
 use crate::parser::CommandType;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::error;
 
 use log::debug;
 use log::info;
@@ -18,14 +17,14 @@ pub struct CodeWriter<'a> {
     op_lookup: HashMap<String, String>,
     memory_lookup: HashMap<String, String>,
     jmp_counter: i16,
-    return_stack: VecDeque<String>,
-    call_counter: i16,
+    call_counter: &'a mut i16,
     current_function: String,
+    return_stack: &'a mut VecDeque<String>,
     bootstrap: bool,
 }
 
 impl<'a> CodeWriter<'a> {
-    pub fn new(filename: &'a str, bootstrap: bool) -> Self {
+    pub fn new(filename: &'a str, bootstrap: bool, call_counter: &'a mut i16, return_stack: &'a mut VecDeque<String>) -> Self {
         CodeWriter {
             filename,
             op_lookup: HashMap::from([
@@ -48,10 +47,11 @@ impl<'a> CodeWriter<'a> {
                 (String::from("temp"), String::from("TEMP")),
             ]),
             jmp_counter: 0,
-            call_counter: -1,
-            return_stack: VecDeque::new(),
+            call_counter,
             current_function: String::from("bootstrap"),
             bootstrap,
+            return_stack,
+
         }
     }
 
@@ -120,7 +120,7 @@ impl<'a> CodeWriter<'a> {
 
     pub fn write_call(&mut self, function_name: &str, n_args: i16) -> String {
         info!("function_name in call is {:?}", function_name);
-        self.call_counter += 1;
+        *self.call_counter += 1;
         let write_string = formatdoc! {
             // TODO - Call other functions to improve this
             "// call {function_name} {n_args}
@@ -181,9 +181,9 @@ impl<'a> CodeWriter<'a> {
             // goto {function_name}
             @{function_name}
             0;JMP
-            ({}.{}$ret.{})
+            ({function_name}$ret.{})
             
-            ", self.call_counter, self.filename, self.current_function, self.call_counter,
+            ", self.call_counter, self.call_counter,
         };
 
         // Skip first push, we never return to bootstrap function.
@@ -212,18 +212,18 @@ impl<'a> CodeWriter<'a> {
         // TODO: Call other functions to improve this.
         let mut write_string = formatdoc! {
             "// return
-            // Store LCL in R13 (call it frame)
+            // Store LCL in frame
             @LCL
             D=M
-            @R13
+            @FRAME
             M=D
-            // Store retAddress *(frame-5) in R14
+            // Store retAddress *(frame-5) in @RET
             @5
             D=D-A
-            @R14
+            @RET
             AM=D
             D=M
-            @R14
+            @RET
             M=D
             // Pop the return value for caller
             {}
@@ -237,7 +237,7 @@ impl<'a> CodeWriter<'a> {
             @SP
             M=D
             // Restore THAT for caller *(frame-1)
-            @R13
+            @FRAME
             D=M
             A=M-1
             D=M
@@ -246,7 +246,7 @@ impl<'a> CodeWriter<'a> {
             // Restore THIS for caller *(frame-2)
             @2
             D=A
-            @R13
+            @FRAME
             D=M-D
             A=D
             D=M
@@ -255,7 +255,7 @@ impl<'a> CodeWriter<'a> {
             // Restore ARG for caller *(frame-3)
             @3
             D=A
-            @R13
+            @FRAME
             D=M-D
             A=D
             D=M
@@ -264,7 +264,7 @@ impl<'a> CodeWriter<'a> {
             // Restore LCL for caller *(frame-4)
             @4
             D=A
-            @R13
+            @FRAME
             D=M-D
             A=D
             D=M
@@ -273,29 +273,41 @@ impl<'a> CodeWriter<'a> {
             ", self.generate_pop_stack(true)
         };
 
-        if !self.return_stack.is_empty() {
-            write_string.push_str(
-                formatdoc! {
-                    "// goto return address
-                @{}
-                0;JMP
+        // if !self.return_stack.is_empty() {
+        //     write_string.push_str(
+        //         formatdoc! {
+        //             "// goto return address
+        //         @{}
+        //         0;JMP
                 
-                ", self.return_stack.pop_front().unwrap()
-                }
-                .as_str(),
-            );
-            info!(
-                "After return statment, return_stack is now: {:?}",
-                self.return_stack
-            );
-            info!(
-                "After return statment, call_counter is now: {:?}",
-                self.call_counter
-            );
-        } else {
-            debug!("Return stack is empty! Trying to return from {:?}", self.current_function);
-            write_string.push_str("\n")
-        }
+        //         ", self.return_stack.pop_front().unwrap()
+        //         }
+        //         .as_str(),
+        //     );
+        //     info!(
+        //         "After return statment, return_stack is now: {:?}",
+        //         self.return_stack
+        //     );
+        //     info!(
+        //         "After return statment, call_counter is now: {:?}",
+        //         self.call_counter
+        //     );
+        // } else {
+        //     debug!("Return stack is empty! Trying to return from {:?}", self.current_function);
+        //     write_string.push_str("\n")
+        // }
+
+        write_string.push_str(
+            formatdoc! {
+                "// goto return address
+            @RET
+            A=M
+            0;JMP
+            
+            ",
+            }
+            .as_str()
+        );
 
         write_string
     }
